@@ -234,11 +234,6 @@ public class OBridgeParameter : DbParameter
 	public override int Size { get; set; }
 }
 
-public class OBridgeConnectionStringBuilder : DbConnectionStringBuilder
-{
-
-}
-
 public class OBridgeFactory : DbProviderFactory
 {
 
