@@ -7,6 +7,20 @@ namespace OBridgeConnector;
 
 public class OBridgeConnection : DbConnection
 {
+	[AllowNull]
+	public override string ConnectionString { get; set; } = null;
+	public override string Database { get; } = "";
+	public override ConnectionState State { get; } = ConnectionState.Closed;
+	public override string DataSource { get; } = "";
+	public override string ServerVersion { get; } = "";
+
+	public OBridgeConnection() {}
+
+	public OBridgeConnection(string connectionString)
+	{
+		ConnectionString = connectionString;
+	}
+
 	protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
 	{
 		throw new NotImplementedException();
@@ -19,66 +33,43 @@ public class OBridgeConnection : DbConnection
 
 	public override void Close()
 	{
-		throw new NotImplementedException();
+		CloseAsync().GetAwaiter().GetResult();
 	}
 
 	public override void Open()
 	{
-		throw new NotImplementedException();
+		OpenAsync().GetAwaiter().GetResult();
 	}
 
-	[AllowNull] 
-	public override string ConnectionString { get; set; }
-	public override string Database { get; }
-	public override ConnectionState State { get; }
-	public override string DataSource { get; }
-	public override string ServerVersion { get; }
+	public override async Task CloseAsync()
+	{
+		
+	}
+
+	public override async Task OpenAsync(CancellationToken token)
+	{
+		
+	}
 
 	protected override DbCommand CreateDbCommand()
 	{
-		throw new NotImplementedException();
-	}
-}
-
-public class OBridgeCommand : DbCommand
-{
-	public override void Cancel()
-	{
-		throw new NotImplementedException();
+		return new OBridgeCommand(this);
 	}
 
-	public override int ExecuteNonQuery()
+	private Request GetConnectionRequest()
 	{
-		throw new NotImplementedException();
+		var request = new Request();
+		request.WriteBytes("OCON"u8.ToArray());
+
+		var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
+		byte useCompressionByte = 0;
+		if (builder.Compression != false) useCompressionByte = 1;
+		request.WriteByte(useCompressionByte);
 	}
 
-	public override object? ExecuteScalar()
+	public async Task<OBridgeDataReader> RequestReader(Request request, CancellationToken token)
 	{
-		throw new NotImplementedException();
-	}
-
-	public override void Prepare()
-	{
-		throw new NotImplementedException();
-	}
-
-	[AllowNull] public override string CommandText { get; set; }
-	public override int CommandTimeout { get; set; }
-	public override CommandType CommandType { get; set; }
-	public override UpdateRowSource UpdatedRowSource { get; set; }
-	protected override DbConnection? DbConnection { get; set; }
-	protected override DbParameterCollection DbParameterCollection { get; }
-	protected override DbTransaction? DbTransaction { get; set; }
-	public override bool DesignTimeVisible { get; set; }
-
-	protected override DbParameter CreateDbParameter()
-	{
-		throw new NotImplementedException();
-	}
-
-	protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
-	{
-		throw new NotImplementedException();
+		
 	}
 }
 
@@ -237,4 +228,18 @@ public class OBridgeParameter : DbParameter
 public class OBridgeFactory : DbProviderFactory
 {
 
+}
+
+public enum CommandEnum
+{
+	ConnectNamed = 0x02,
+	ConnectProxy = 0x03,
+	BeginTransaction = 0x10,
+	CommitTransaction = 0x11,
+	RollbackTransaction = 0x12,
+	Query = 0x20,
+	QueryPrepared = 0x21,
+	Prepare = 0x22,
+	ClosePrepared = 0x23,
+	CancelFetch = 0x30
 }

@@ -2,13 +2,11 @@
 
 namespace OBridgeConnector;
 
-public abstract class BaseBridgeConnectionStringBuilder : DbConnectionStringBuilder
+public class OBridgeConnectionStringBuilder : DbConnectionStringBuilder
 {
-	protected BaseBridgeConnectionStringBuilder() { }
-
 	public string? BridgeHost
 	{
-		get => GetOptionalString("BridgeHost");
+		get => GetString("BridgeHost");
 		set => this["BridgeHost"] = value;
 	}
 
@@ -34,42 +32,31 @@ public abstract class BaseBridgeConnectionStringBuilder : DbConnectionStringBuil
 		set => this["Compression"] = value;
 	}
 
-	protected string? GetOptionalString(string key)
-		=> TryGetValue(key, out var value) ? value?.ToString() : null;
+	//internal login mode
 
-	protected int? GetInt(string key)
-		=> TryGetValue(key, out var value) ? Convert.ToInt32(value) : null;
-
-	protected bool? GetBool(string key)
-		=> TryGetValue(key, out var value) ? Convert.ToBoolean(value) : null;
-}
-
-public class BridgeNamedConnectionBuilder : BaseBridgeConnectionStringBuilder
-{
 	public string? ServerName
 	{
-		get => GetOptionalString("ServerName");
+		get => GetString("ServerName");
 		set => this["ServerName"] = value;
 	}
 
 	public string? Username
 	{
-		get => GetOptionalString("Username");
+		get => GetString("Username");
 		set => this["Username"] = value;
 	}
 
 	public string? Password
 	{
-		get => GetOptionalString("Password");
+		get => GetString("Password");
 		set => this["Password"] = value;
 	}
-}
 
-public class BridgeProxyConnectionBuilder : BaseBridgeConnectionStringBuilder
-{
+	//proxy login mode
+
 	public string? OracleHost
 	{
-		get => GetOptionalString("OracleHost");
+		get => GetString("OracleHost");
 		set => this["OracleHost"] = value;
 	}
 
@@ -81,27 +68,62 @@ public class BridgeProxyConnectionBuilder : BaseBridgeConnectionStringBuilder
 
 	public string? OracleSID
 	{
-		get => GetOptionalString("OracleSID");
+		get => GetString("OracleSID");
 		set => this["OracleSID"] = value;
 	}
 
 	public string? OracleServiceName
 	{
-		get => GetOptionalString("OracleServiceName");
+		get => GetString("OracleServiceName");
 		set => this["OracleServiceName"] = value;
 	}
 
 	public string? OracleUser
 	{
-		get => GetOptionalString("OracleUser");
+		get => GetString("OracleUser");
 		set => this["OracleUser"] = value;
 	}
 
 	public string? OraclePassword
 	{
-		get => GetOptionalString("OraclePassword");
+		get => GetString("OraclePassword");
 		set => this["OraclePassword"] = value;
 	}
+
+	public string ToOracleConnectionString()
+	{
+		if (string.IsNullOrWhiteSpace(OracleHost))
+			throw new ArgumentException("OracleHost is required");
+
+		if (string.IsNullOrWhiteSpace(OracleUser))
+			throw new ArgumentException("OracleUser is required");
+
+		if (string.IsNullOrWhiteSpace(OraclePassword))
+			throw new ArgumentException("OraclePassword is required");
+
+		if (string.IsNullOrWhiteSpace(OracleSID) && string.IsNullOrWhiteSpace(OracleServiceName))
+			throw new ArgumentException("Either OracleSID or OracleServiceName must be specified");
+
+		var connectData = OracleSID != null
+			? $"(SID={OracleSID})"
+			: $"(SERVICE_NAME={OracleServiceName})";
+
+		var address =
+			$"(PROTOCOL=TCP)(HOST={OracleHost})"
+			+ (OraclePort != null ? $"(PORT={OraclePort})" : "");
+
+		var dataSource = $"(DESCRIPTION=(ADDRESS={address})(CONNECT_DATA={connectData}))";
+		return $"User Id={OracleUser};Password={OraclePassword};Data Source={dataSource}";
+	}
+
+	protected string? GetString(string key)
+		=> TryGetValue(key, out var value) ? value.ToString() : null;
+
+	protected int? GetInt(string key)
+		=> TryGetValue(key, out var value) ? Convert.ToInt32(value) : null;
+
+	protected bool? GetBool(string key)
+		=> TryGetValue(key, out var value) ? Convert.ToBoolean(value) : null;
 }
 
 public enum SslMode
