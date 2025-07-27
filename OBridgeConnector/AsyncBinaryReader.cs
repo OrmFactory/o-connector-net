@@ -37,7 +37,7 @@ public class AsyncBinaryReader
 		return Encoding.UTF8.GetString(strBuf);
 	}
 
-	private async Task<int> Read7BitEncodedIntAsync(CancellationToken token)
+	public async Task<int> Read7BitEncodedIntAsync(CancellationToken token)
 	{
 		int count = 0;
 		int shift = 0;
