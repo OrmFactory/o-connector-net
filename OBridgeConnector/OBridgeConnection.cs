@@ -2,17 +2,24 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Sockets;
 
 namespace OBridgeConnector;
 
 public class OBridgeConnection : DbConnection
 {
+	private ConnectionState state = ConnectionState.Closed;
+	public override ConnectionState State => state;
+
 	[AllowNull]
 	public override string ConnectionString { get; set; } = null;
 	public override string Database { get; } = "";
-	public override ConnectionState State { get; } = ConnectionState.Closed;
 	public override string DataSource { get; } = "";
 	public override string ServerVersion { get; } = "";
+
+	private TcpClient client = new TcpClient();
+	private Stream? stream;
+	private AsyncBinaryReader? reader;
 
 	public OBridgeConnection() {}
 
@@ -48,7 +55,26 @@ public class OBridgeConnection : DbConnection
 
 	public override async Task OpenAsync(CancellationToken token)
 	{
-		
+		if (State != ConnectionState.Closed) return;
+
+		try
+		{
+			state = ConnectionState.Connecting;
+			var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
+			await CreateTransport(builder, token);
+			var request = GetConnectionRequest(builder);
+			await request.SendAsync(stream, token);
+			await ReadConnectionResponse(token);
+			state = ConnectionState.Open;
+		}
+		catch (Exception e)
+		{
+			state = ConnectionState.Closed;
+			stream?.Close();
+			client.Close();
+			stream = null;
+			throw e;
+		}
 	}
 
 	protected override DbCommand CreateDbCommand()
@@ -56,20 +82,71 @@ public class OBridgeConnection : DbConnection
 		return new OBridgeCommand(this);
 	}
 
-	private Request GetConnectionRequest()
+	private async Task CreateTransport(OBridgeConnectionStringBuilder builder, CancellationToken token)
+	{
+		var host = builder.BridgeHost;
+		if (host == null) throw new ArgumentException("BridgeHost is required");
+		var sslMode = builder.SslMode;
+		if (sslMode == null) sslMode = SslMode.Require;
+
+		var port = sslMode == SslMode.None ? 0x0f0f : 0x0fac;
+		port = builder.BridgePort ?? port;
+		await client.ConnectAsync(host, port, token);
+		stream = client.GetStream();
+		reader = new AsyncBinaryReader(stream);
+	}
+
+	private async Task ReadConnectionResponse(CancellationToken token)
+	{
+		var code = await reader.ReadByteAsync(token);
+		if (code == 0x20) await ReadError(token);
+		if (code == 0)
+		{
+			var compressionFlag = await reader.ReadByteAsync(token);
+			var protocolVersion = await reader.ReadByteAsync(token);
+		}
+	}
+
+	private async Task ReadError(CancellationToken token)
+	{
+		var errorCode = await reader.ReadByteAsync(token);
+		var errorMessage = await reader.ReadStringAsync(token);
+		throw new Exception(errorMessage);
+	}
+
+	private Request GetConnectionRequest(OBridgeConnectionStringBuilder builder)
 	{
 		var request = new Request();
 		request.WriteBytes("OCON"u8.ToArray());
 
-		var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
+		//protocol version
+		request.WriteByte(1);
+
 		byte useCompressionByte = 0;
 		if (builder.Compression != false) useCompressionByte = 1;
 		request.WriteByte(useCompressionByte);
+
+		request.WriteByte(0);
+		request.WriteByte(0);
+
+		if (builder is { ServerName: not null, Username: not null, Password: not null })
+		{
+			request.WriteByte((byte)CommandEnum.ConnectNamed);
+			request.WriteString(builder.ServerName);
+			request.WriteString(builder.Username);
+			request.WriteString(builder.Password);
+			return request;
+		}
+
+		var conString = builder.ToOracleConnectionString();
+		request.WriteByte((byte)CommandEnum.ConnectProxy);
+		request.WriteString(conString);
+		return request;
 	}
 
 	public async Task<OBridgeDataReader> RequestReader(Request request, CancellationToken token)
 	{
-		
+		var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
 	}
 }
 
