@@ -3,6 +3,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
+using ZstdSharp;
 
 namespace OBridgeConnector;
 
@@ -16,9 +17,11 @@ public class OBridgeConnection : DbConnection
 	public override string Database { get; } = "";
 	public override string DataSource { get; } = "";
 	public override string ServerVersion { get; } = "";
+	public Stream? Stream => stream;
 
 	private TcpClient client = new TcpClient();
 	private Stream? stream;
+	private DecompressionStream? decompressionStream;
 	private AsyncBinaryReader? reader;
 
 	public OBridgeConnection() {}
@@ -26,6 +29,16 @@ public class OBridgeConnection : DbConnection
 	public OBridgeConnection(string connectionString)
 	{
 		ConnectionString = connectionString;
+	}
+
+	private void SetState(ConnectionState newState)
+	{
+		if (state != newState)
+		{
+			var old = state;
+			state = newState;
+			OnStateChange(new StateChangeEventArgs(old, newState));
+		}
 	}
 
 	protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
@@ -50,7 +63,39 @@ public class OBridgeConnection : DbConnection
 
 	public override async Task CloseAsync()
 	{
-		
+		if (state == ConnectionState.Closed) return;
+		state = ConnectionState.Closed;
+
+		try
+		{
+			if (decompressionStream != null)
+				await decompressionStream.DisposeAsync();
+		}
+		catch { }
+
+		try
+		{
+			if (stream != null) await stream.DisposeAsync();
+		} 
+		catch { }
+
+		reader = null;
+		client.Close();
+		stream = null;
+		decompressionStream = null;
+	}
+
+	protected override void Dispose(bool disposing)
+	{
+		if (disposing)
+		{
+			Close();
+		}
+	}
+
+	public override async ValueTask DisposeAsync()
+	{
+		await CloseAsync();
 	}
 
 	public override async Task OpenAsync(CancellationToken token)
@@ -65,15 +110,15 @@ public class OBridgeConnection : DbConnection
 			var request = GetConnectionRequest(builder);
 			await request.SendAsync(stream, token);
 			await ReadConnectionResponse(token);
-			state = ConnectionState.Open;
+			SetState(ConnectionState.Open);
 		}
 		catch (Exception e)
 		{
-			state = ConnectionState.Closed;
+			SetState(ConnectionState.Closed);
 			stream?.Close();
 			client.Close();
 			stream = null;
-			throw e;
+			throw;
 		}
 	}
 
@@ -99,12 +144,21 @@ public class OBridgeConnection : DbConnection
 	private async Task ReadConnectionResponse(CancellationToken token)
 	{
 		var code = await reader.ReadByteAsync(token);
-		if (code == 0x20) await ReadError(token);
-		if (code == 0)
+		if (code == (byte)ResponseTypeEnum.Error) await ReadError(token);
+		if (code == (byte)ResponseTypeEnum.ConnectionSuccess)
 		{
 			var compressionFlag = await reader.ReadByteAsync(token);
 			var protocolVersion = await reader.ReadByteAsync(token);
+
+			if (compressionFlag == 1)
+			{
+				decompressionStream = new DecompressionStream(stream);
+				reader = new AsyncBinaryReader(decompressionStream);
+			}
+			return;
 		}
+
+		throw new Exception("Unknown response code " + code);
 	}
 
 	private async Task ReadError(CancellationToken token)
@@ -147,11 +201,47 @@ public class OBridgeConnection : DbConnection
 	public async Task<OBridgeDataReader> RequestReader(Request request, CancellationToken token)
 	{
 		var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
+
+		if (State == ConnectionState.Closed)
+		{
+			await CreateTransport(builder, token);
+			var connectionRequest = GetConnectionRequest(builder);
+			await connectionRequest.SendAsync(stream, token);
+			SetState(ConnectionState.Connecting);
+		}
+
+		await request.SendAsync(stream, token);
+
+		if (State == ConnectionState.Connecting)
+		{
+			await ReadConnectionResponse(token);
+			SetState(ConnectionState.Open);
+		}
+
+		var dbReader = await OBridgeDataReader.Create(reader, token);
+		return dbReader;
 	}
 }
 
 public class OBridgeDataReader : DbDataReader
 {
+	public static async Task<OBridgeDataReader> Create(AsyncBinaryReader reader, CancellationToken token)
+	{
+		byte responseCode = await reader.ReadByteAsync(token);
+		if (responseCode == (byte)ResponseTypeEnum.Error) await ReadError(reader, token);
+		if (responseCode == (byte)ResponseTypeEnum.TableHeader)
+		{
+			
+		}
+	}
+
+	private static async Task ReadError(AsyncBinaryReader reader, CancellationToken token)
+	{
+		var errorCode = await reader.ReadByteAsync(token);
+		var errorMessage = await reader.ReadStringAsync(token);
+		throw new Exception(errorMessage);
+	}
+
 	public override bool GetBoolean(int ordinal)
 	{
 		throw new NotImplementedException();
@@ -269,7 +359,12 @@ public class OBridgeDataReader : DbDataReader
 
 	public override bool NextResult()
 	{
-		throw new NotImplementedException();
+		return NextResultAsync(CancellationToken.None).GetAwaiter().GetResult();
+	}
+
+	public override async Task<bool> NextResultAsync(CancellationToken token)
+	{
+		return false;
 	}
 
 	public override bool Read()
@@ -305,6 +400,16 @@ public class OBridgeParameter : DbParameter
 public class OBridgeFactory : DbProviderFactory
 {
 
+}
+
+public enum ResponseTypeEnum
+{
+	ConnectionSuccess = 0,
+	TableHeader = 0x01,
+	RowData = 0x02,
+	EndOfRowStream = 0x03,
+	Error = 0x10,
+	OracleQueryError = 0x11,
 }
 
 public enum CommandEnum

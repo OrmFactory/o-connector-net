@@ -18,6 +18,12 @@ public class OBridgeCommand : DbCommand
 		throw new NotImplementedException();
 	}
 
+	public async Task CancelAsync(CancellationToken token)
+	{
+		var request = new Request(CommandEnum.CancelFetch);
+		await request.SendAsync(connection.Stream, token);
+	}
+
 	public override int ExecuteNonQuery()
 	{
 		return ExecuteNonQueryAsync().GetAwaiter().GetResult();
