@@ -21,11 +21,11 @@ public class OBridgeDataReader : DbDataReader
 
 	public static async Task<OBridgeDataReader> Create(AsyncBinaryReader reader, CancellationToken token)
 	{
-		byte responseCode = await reader.ReadByteAsync(token);
+		byte responseCode = await reader.ReadByte(token);
 		if (responseCode == (byte)ResponseTypeEnum.Error) await ReadError(reader, token);
 		if (responseCode == (byte)ResponseTypeEnum.TableHeader)
 		{
-			int columnCount = await reader.Read7BitEncodedIntAsync(token);
+			int columnCount = await reader.Read7BitEncodedInt(token);
 			var columnList = new List<OBridgeColumn>();
 			for (int i = 0; i < columnCount; i++)
 			{
@@ -42,8 +42,8 @@ public class OBridgeDataReader : DbDataReader
 
 	private static async Task ReadError(AsyncBinaryReader reader, CancellationToken token)
 	{
-		var errorCode = await reader.ReadByteAsync(token);
-		var errorMessage = await reader.ReadStringAsync(token);
+		var errorCode = await reader.ReadByte(token);
+		var errorMessage = await reader.ReadString(token);
 		throw new Exception(errorMessage);
 	}
 
@@ -78,24 +78,18 @@ public class OBridgeDataReader : DbDataReader
 	{
 		if (typeof(T) == typeof(bool)) return (T)(object)GetBoolean(ordinal);
 		if (typeof(T) == typeof(byte)) return (T)(object)GetByte(ordinal);
-		if (typeof(T) == typeof(sbyte)) return (T)(object)GetSByte(ordinal);
 		if (typeof(T) == typeof(short)) return (T)(object)GetInt16(ordinal);
-		if (typeof(T) == typeof(ushort)) return (T)(object)GetUInt16(ordinal);
 		if (typeof(T) == typeof(int)) return (T)(object)GetInt32(ordinal);
-		if (typeof(T) == typeof(uint)) return (T)(object)GetUInt32(ordinal);
 		if (typeof(T) == typeof(long)) return (T)(object)GetInt64(ordinal);
-		if (typeof(T) == typeof(ulong)) return (T)(object)GetUInt64(ordinal);
 		if (typeof(T) == typeof(char)) return (T)(object)GetChar(ordinal);
 		if (typeof(T) == typeof(decimal)) return (T)(object)GetDecimal(ordinal);
 		if (typeof(T) == typeof(double)) return (T)(object)GetDouble(ordinal);
 		if (typeof(T) == typeof(float)) return (T)(object)GetFloat(ordinal);
 		if (typeof(T) == typeof(string)) return (T)(object)GetString(ordinal);
 		if (typeof(T) == typeof(DateTime)) return (T)(object)GetDateTime(ordinal);
-		if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)GetDateTimeOffset(ordinal);
 		if (typeof(T) == typeof(Guid)) return (T)(object)GetGuid(ordinal);
 		if (typeof(T) == typeof(Stream)) return (T)(object)GetStream(ordinal);
 		if (typeof(T) == typeof(TextReader) || typeof(T) == typeof(StringReader)) return (T)(object)GetTextReader(ordinal);
-		if (typeof(T) == typeof(TimeSpan)) return (T)(object)GetTimeSpan(ordinal);
 		return base.GetFieldValue<T>(ordinal);
 	}
 
@@ -126,10 +120,7 @@ public class OBridgeDataReader : DbDataReader
 	}
 
 	public override string GetDataTypeName(int ordinal) => columns[ordinal].DataTypeName ?? "";
-	public override Type GetFieldType(int ordinal) => columns[ordinal].DataType
-	{
-		throw new NotImplementedException();
-	}
+	public override Type GetFieldType(int ordinal) => columns[ordinal].DataType;
 
 	public override int FieldCount { get; }
 

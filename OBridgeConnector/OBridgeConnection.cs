@@ -142,12 +142,12 @@ public class OBridgeConnection : DbConnection
 
 	private async Task ReadConnectionResponse(CancellationToken token)
 	{
-		var code = await reader.ReadByteAsync(token);
+		var code = await reader.ReadByte(token);
 		if (code == (byte)ResponseTypeEnum.Error) await ReadError(token);
 		if (code == (byte)ResponseTypeEnum.ConnectionSuccess)
 		{
-			var compressionFlag = await reader.ReadByteAsync(token);
-			var protocolVersion = await reader.ReadByteAsync(token);
+			var compressionFlag = await reader.ReadByte(token);
+			var protocolVersion = await reader.ReadByte(token);
 
 			if (compressionFlag == 1)
 			{
@@ -162,8 +162,8 @@ public class OBridgeConnection : DbConnection
 
 	private async Task ReadError(CancellationToken token)
 	{
-		var errorCode = await reader.ReadByteAsync(token);
-		var errorMessage = await reader.ReadStringAsync(token);
+		var errorCode = await reader.ReadByte(token);
+		var errorMessage = await reader.ReadString(token);
 		throw new Exception(errorMessage);
 	}
 

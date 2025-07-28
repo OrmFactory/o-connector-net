@@ -16,35 +16,53 @@ public class AsyncBinaryReader
 		this.stream = stream;
 	}
 
-	public async Task<byte> ReadByteAsync(CancellationToken token)
+	public async Task<byte> ReadByte(CancellationToken token)
 	{
-		await ReadExactAsync(buffer, 1, token).ConfigureAwait(false);
+		await ReadExact(buffer, 1, token).ConfigureAwait(false);
 		return buffer[0];
 	}
 
-	public async Task<int> ReadInt32Async(CancellationToken token)
+	public async Task<int> ReadInt32(CancellationToken token)
 	{
-		await ReadExactAsync(buffer, 4, token).ConfigureAwait(false);
+		await ReadExact(buffer, 4, token).ConfigureAwait(false);
 		return BitConverter.ToInt32(buffer, 0);
 	}
 
-	public async Task<string> ReadStringAsync(CancellationToken token)
+	public async Task<uint> ReadUInt32(CancellationToken token)
 	{
-		int length = await Read7BitEncodedIntAsync(token).ConfigureAwait(false);
+		await ReadExact(buffer, 4, token).ConfigureAwait(false);
+		return BitConverter.ToUInt32(buffer, 0);
+	}
+
+	public async Task<short> ReadInt16(CancellationToken token)
+	{
+		await ReadExact(buffer, 2, token).ConfigureAwait(false);
+		return BitConverter.ToInt16(buffer, 0);
+	}
+
+	public async Task<ushort> ReadUInt16(CancellationToken token)
+	{
+		await ReadExact(buffer, 2, token).ConfigureAwait(false);
+		return BitConverter.ToUInt16(buffer, 0);
+	}
+
+	public async Task<string> ReadString(CancellationToken token)
+	{
+		int length = await Read7BitEncodedInt(token).ConfigureAwait(false);
 		if (length == 0) return string.Empty;
 		byte[] strBuf = new byte[length];
-		await ReadExactAsync(strBuf, length, token).ConfigureAwait(false);
+		await ReadExact(strBuf, length, token).ConfigureAwait(false);
 		return Encoding.UTF8.GetString(strBuf);
 	}
 
-	public async Task<int> Read7BitEncodedIntAsync(CancellationToken token)
+	public async Task<int> Read7BitEncodedInt(CancellationToken token)
 	{
 		int count = 0;
 		int shift = 0;
 
 		while (true)
 		{
-			byte b = await ReadByteAsync(token).ConfigureAwait(false);
+			byte b = await ReadByte(token).ConfigureAwait(false);
 			count |= (b & 0x7F) << shift;
 			if ((b & 0x80) == 0) break;
 
@@ -56,16 +74,16 @@ public class AsyncBinaryReader
 		return count;
 	}
 
-	public virtual async Task<byte[]> ReadBytesAsync(int count, CancellationToken token)
+	public virtual async Task<byte[]> ReadBytes(int count, CancellationToken token)
 	{
 		var result = new byte[count];
-		await ReadExactAsync(result, count, token).ConfigureAwait(false);
+		await ReadExact(result, count, token).ConfigureAwait(false);
 		return result;
 	}
 
 	private int isReading = 0;
 
-	private async Task ReadExactAsync(byte[] buf, int count, CancellationToken token)
+	private async Task ReadExact(byte[] buf, int count, CancellationToken token)
 	{
 		if (Interlocked.Exchange(ref isReading, 1) != 0)
 			throw new InvalidOperationException("Another read is already in progress.");
