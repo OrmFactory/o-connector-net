@@ -46,6 +46,10 @@ public class DateTimeValue : ValueObject
 	private int nanosecond;
 	private int timeZoneOffsetMinutes;
 
+	bool isDateOnly;
+	bool hasFraction;
+	bool hasTimezone;
+
 	public DateTimeValue(int precision)
 	{
 		this.precision = precision;
@@ -53,61 +57,80 @@ public class DateTimeValue : ValueObject
 
 	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
 	{
-		uint low = await reader.ReadUInt32(token);
+		var bits = new AsyncBitReader(reader);
 
-		bool isDateOnly = (low & (1U << 0)) != 0;
-		bool hasFraction = (low & (1U << 1)) != 0;
-		bool hasTimezone = (low & (1U << 2)) != 0;
+		isDateOnly = await bits.ReadBit(token);
+		hasFraction = await bits.ReadBit(token);
+		hasTimezone = await bits.ReadBit(token);
 
-		// Year: sign + 14 bits
-		uint yearBits = (low >> 7) & 0x7FFF;
-		year = (short)(yearBits & 0x3FFF);
-		if ((yearBits & (1U << 14)) != 0) year = -year;
 
-		month = (byte)((low >> 22) & 0xF);
-		day = (byte)((low >> 26) & 0x1F);
+		year = await bits.ReadSignedBits(15, token);
+		month = await bits.ReadBits(4, token);
+		day = await bits.ReadBits(5, token);
 
 		if (isDateOnly) return;
 
-		ushort high = await reader.ReadUInt16(token);
-		ulong full = ((ulong)high << 32) | low;
-
-		hour = (byte)((full >> 31) & 0x1F);
-		minute = (byte)((full >> 36) & 0x3F);
-		second = (byte)((full >> 42) & 0x3F);
+		hour = await bits.ReadBits(5, token);
+		minute = await bits.ReadBits(6, token);
+		second = await bits.ReadBits(6, token);
 
 		nanosecond = 0;
 		if (hasFraction && precision > 0)
 		{
-			int scaled = 0;
-			if (precision <= 2)
-			{
-				scaled = await reader.ReadByte(token);
-			}
-			else if (precision <= 4)
-			{
-				scaled = await reader.ReadUInt16(token);
-			}
-			else if (precision <= 6)
-			{
-				scaled = (await reader.ReadByte(token) << 16)
-				         | (await reader.ReadByte(token) << 8)
-				         | await reader.ReadByte(token);
-			}
-			else
-			{
-				scaled = (int)await reader.ReadUInt32(token);
-			}
-
-			int scale = 9 - precision;
-			nanosecond = scaled * PowersOf10[scale];
+			int bitLength = FractionBitLengths[precision];
+			int scaled = await bits.ReadBits(bitLength, token);
+			nanosecond = scaled * PowersOf10[9 - precision];
 		}
 
 		if (hasTimezone)
 		{
-			timeZoneOffsetMinutes = await reader.ReadInt16(token);
+			timeZoneOffsetMinutes = await bits.ReadSignedBits(11, token);
 		}
 	}
+
+	public override string GetString()
+	{
+		return ToString();
+	}
+
+	public override string ToString()
+	{
+		var date = $"{year:D4}-{month:D2}-{day:D2}";
+		if (isDateOnly) return date;
+
+		var dateTime = date +  $" {hour:D2}:{minute:D2}:{second:D2}";
+
+		if (hasFraction)
+		{
+			var fraction = nanosecond.ToString().PadLeft(9, '0').Substring(0, precision);
+			dateTime += $".{fraction}";
+		}
+
+		if (hasTimezone)
+		{
+			var offset = timeZoneOffsetMinutes;
+			var sign = offset < 0 ? '-' : '+';
+			offset = Math.Abs(offset);
+			var tzHour = offset / 60;
+			var tzMin = offset % 60;
+			return $"{dateTime}{sign}{tzHour:D2}:{tzMin:D2}";
+		}
+		return dateTime;
+	}
+
+	private static readonly int[] FractionBitLengths = new int[]
+	{
+		0,  // precision 0
+		4,  // precision 1
+		7,  // precision 2
+		10, // precision 3
+		14, // precision 4
+		17, // precision 5
+		20, // precision 6
+		24, // precision 7
+		27, // precision 8
+		30  // precision 9
+	};
 
 	private static readonly int[] PowersOf10 = new int[]
 	{
