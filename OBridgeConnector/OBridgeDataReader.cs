@@ -73,6 +73,9 @@ public class OBridgeDataReader : DbDataReader
 	public override int GetInt32(int ordinal) => GetValueObject(ordinal).GetInt32();
 	public override long GetInt64(int ordinal) => GetValueObject(ordinal).GetInt64();
 	public override string GetString(int ordinal) => GetValueObject(ordinal).GetString();
+	public override object GetValue(int ordinal) => GetValueObject(ordinal).GetValue();
+
+	public DateTimeOffset GetDateTimeOffset(int ordinal) => GetValueObject(ordinal).GetDateTimeOffset();
 
 	public override T GetFieldValue<T>(int ordinal)
 	{
@@ -87,6 +90,7 @@ public class OBridgeDataReader : DbDataReader
 		if (typeof(T) == typeof(float)) return (T)(object)GetFloat(ordinal);
 		if (typeof(T) == typeof(string)) return (T)(object)GetString(ordinal);
 		if (typeof(T) == typeof(DateTime)) return (T)(object)GetDateTime(ordinal);
+		if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)GetDateTimeOffset(ordinal);
 		if (typeof(T) == typeof(Guid)) return (T)(object)GetGuid(ordinal);
 		if (typeof(T) == typeof(Stream)) return (T)(object)GetStream(ordinal);
 		if (typeof(T) == typeof(TextReader) || typeof(T) == typeof(StringReader)) return (T)(object)GetTextReader(ordinal);
@@ -99,12 +103,6 @@ public class OBridgeDataReader : DbDataReader
 	}
 
 	public override int GetOrdinal(string name)
-	{
-		throw new NotImplementedException();
-	}
-
-
-	public override object GetValue(int ordinal)
 	{
 		throw new NotImplementedException();
 	}

@@ -6,7 +6,9 @@ public class OBridgeColumn : DbColumn
 {
 	public static async Task<OBridgeColumn> FromReader(int columnOrdinal, AsyncBinaryReader reader, CancellationToken token)
 	{
-
+		var column = new OBridgeColumn();
+		var bitReader = new AsyncBitReader(reader);
+		var hasAllowDbNull = await bitReader.ReadBit(token);
 	}
 
 
@@ -16,26 +18,36 @@ public abstract class ValueObject
 {
 	public abstract Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token);
 
-	public virtual bool GetBoolean() => throw new NotSupportedException();
-	public virtual byte GetByte() => throw new NotSupportedException();
-	public virtual char GetChar() => throw new NotSupportedException();
-	public virtual long GetBytes(long dataOffset, byte[]? buffer, int bufferOffset, int length) => throw new NotSupportedException();
-	public virtual long GetChars(long dataOffset, char[]? buffer, int bufferOffset, int length) => throw new NotSupportedException();
-	public virtual DateTime GetDateTime() => throw new NotSupportedException();
-	public virtual decimal GetDecimal() => throw new NotSupportedException();
-	public virtual double GetDouble() => throw new NotSupportedException();
-	public virtual float GetFloat() => throw new NotSupportedException();
-	public virtual Guid GetGuid() => throw new NotSupportedException();
-	public virtual short GetInt16() => throw new NotSupportedException();
-	public virtual int GetInt32() => throw new NotSupportedException();
-	public virtual long GetInt64() => throw new NotSupportedException();
+	public virtual bool GetBoolean() => throw new InvalidCastException();
+	public virtual byte GetByte() => throw new InvalidCastException();
+	public virtual char GetChar() => throw new InvalidCastException();
+	public virtual long GetBytes(long dataOffset, byte[]? buffer, int bufferOffset, int length) => throw new InvalidCastException();
+	public virtual long GetChars(long dataOffset, char[]? buffer, int bufferOffset, int length) => throw new InvalidCastException();
+	public virtual DateTime GetDateTime() => throw new InvalidCastException();
+	public virtual DateTimeOffset GetDateTimeOffset() => throw new InvalidCastException();
+	public virtual decimal GetDecimal() => throw new InvalidCastException();
+	public virtual double GetDouble() => throw new InvalidCastException();
+	public virtual float GetFloat() => throw new InvalidCastException();
+	public virtual Guid GetGuid() => throw new InvalidCastException();
+	public virtual short GetInt16() => throw new InvalidCastException();
+	public virtual int GetInt32() => throw new InvalidCastException();
+	public virtual long GetInt64() => throw new InvalidCastException();
 
 	public abstract string GetString();
+	public abstract object GetValue();
 }
 
 public class DateTimeValue : ValueObject
 {
+	public enum TimeZoneEnum
+	{
+		WithoutTimeZone,
+		WithTimeZone,
+		LocalTimeZone
+	}
+
 	private readonly int precision;
+	private readonly TimeZoneEnum timeZone;
 
 	private int year;
 	private int month;
@@ -50,19 +62,24 @@ public class DateTimeValue : ValueObject
 	bool hasFraction;
 	bool hasTimezone;
 
-	public DateTimeValue(int precision)
+	public DateTimeValue(int precision, TimeZoneEnum timeZone)
 	{
 		this.precision = precision;
+		this.timeZone = timeZone;
 	}
 
 	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
 	{
-		var bits = new AsyncBitReader(reader);
+		hour = 0;
+		minute = 0;
+		second = 0;
+		nanosecond = 0;
+		timeZoneOffsetMinutes = 0;
 
+		var bits = new AsyncBitReader(reader);
 		isDateOnly = await bits.ReadBit(token);
 		hasFraction = await bits.ReadBit(token);
 		hasTimezone = await bits.ReadBit(token);
-
 
 		year = await bits.ReadSignedBits(15, token);
 		month = await bits.ReadBits(4, token);
@@ -73,8 +90,7 @@ public class DateTimeValue : ValueObject
 		hour = await bits.ReadBits(5, token);
 		minute = await bits.ReadBits(6, token);
 		second = await bits.ReadBits(6, token);
-
-		nanosecond = 0;
+		
 		if (hasFraction && precision > 0)
 		{
 			int bitLength = FractionBitLengths[precision];
@@ -91,6 +107,39 @@ public class DateTimeValue : ValueObject
 	public override string GetString()
 	{
 		return ToString();
+	}
+
+	public override DateTime GetDateTime()
+	{
+		var kind = DateTimeKind.Unspecified;
+		if (timeZone == TimeZoneEnum.LocalTimeZone) kind = DateTimeKind.Utc;
+		
+		var dt = new DateTime(year, month, day, hour, minute, second, kind).AddTicks(nanosecond / 100);
+
+		if (timeZone == TimeZoneEnum.LocalTimeZone)
+		{
+			return dt.ToLocalTime();
+		}
+
+		if (timeZone == TimeZoneEnum.WithTimeZone)
+		{
+			return dt.AddMinutes(timeZoneOffsetMinutes);
+		}
+
+		return dt;
+	}
+
+	public override DateTimeOffset GetDateTimeOffset()
+	{
+		var baseTime = new DateTime(year, month, day, hour, minute, second).AddTicks(nanosecond / 100);
+
+		if (timeZone == TimeZoneEnum.WithTimeZone)
+		{
+			return new DateTimeOffset(baseTime, TimeSpan.FromMinutes(timeZoneOffsetMinutes));
+		}
+
+		var offset = TimeZoneInfo.Local.GetUtcOffset(baseTime);
+		return new DateTimeOffset(baseTime, offset);
 	}
 
 	public override string ToString()
@@ -116,6 +165,14 @@ public class DateTimeValue : ValueObject
 			return $"{dateTime}{sign}{tzHour:D2}:{tzMin:D2}";
 		}
 		return dateTime;
+	}
+
+	public override object GetValue()
+	{
+		if (timeZone == TimeZoneEnum.WithTimeZone)
+			return GetDateTimeOffset();
+
+		return GetDateTime();
 	}
 
 	private static readonly int[] FractionBitLengths = new int[]
