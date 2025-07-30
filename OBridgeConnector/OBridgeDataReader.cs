@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using OBridgeConnector.ValueObjects;
+using System.Collections;
 using System.Data.Common;
 using System.Data.SqlTypes;
 
@@ -29,7 +30,8 @@ public class OBridgeDataReader : DbDataReader
 			var columnList = new List<OBridgeColumn>();
 			for (int i = 0; i < columnCount; i++)
 			{
-				var column = await OBridgeColumn.FromReader(i, reader, token);
+				var column = new OBridgeColumn();
+				await column.LoadFromReader(i, reader, token);
 				columnList.Add(column);
 			}
 
