@@ -1,14 +1,14 @@
 ﻿namespace OBridgeConnector.ValueObjects;
 
+public enum TimeZoneEnum
+{
+	WithoutTimeZone,
+	WithTimeZone,
+	LocalTimeZone
+}
+
 public class DateTimeValue : ValueObject
 {
-	public enum TimeZoneEnum
-	{
-		WithoutTimeZone,
-		WithTimeZone,
-		LocalTimeZone
-	}
-
 	private readonly int precision;
 	private readonly TimeZoneEnum timeZone;
 

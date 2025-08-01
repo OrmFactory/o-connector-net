@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Data.Common;
 using System.Data.SqlTypes;
+using OBridgeConnector.OracleTypes;
 
 namespace OBridgeConnector;
 
@@ -78,6 +79,7 @@ public class OBridgeDataReader : DbDataReader
 	public override object GetValue(int ordinal) => GetValueObject(ordinal).GetValue();
 
 	public DateTimeOffset GetDateTimeOffset(int ordinal) => GetValueObject(ordinal).GetDateTimeOffset();
+	public OracleIntervalYM GetOracleIntervalYM(int ordinal) => GetValueObject(ordinal).GetOracleIntervalYM();
 
 	public override T GetFieldValue<T>(int ordinal)
 	{
@@ -96,6 +98,7 @@ public class OBridgeDataReader : DbDataReader
 		if (typeof(T) == typeof(Guid)) return (T)(object)GetGuid(ordinal);
 		if (typeof(T) == typeof(Stream)) return (T)(object)GetStream(ordinal);
 		if (typeof(T) == typeof(TextReader) || typeof(T) == typeof(StringReader)) return (T)(object)GetTextReader(ordinal);
+		if (typeof(T) == typeof(OracleIntervalYM)) return (T)(object)GetOracleIntervalYM(ordinal);
 		return base.GetFieldValue<T>(ordinal);
 	}
 
