@@ -21,48 +21,9 @@ public abstract class ValueObject
 	public virtual int GetInt32() => throw new InvalidCastException();
 	public virtual long GetInt64() => throw new InvalidCastException();
 	public virtual OracleIntervalYM GetOracleIntervalYM() => throw new InvalidCastException();
+	public virtual OracleIntervalDS GetOracleIntervalDS() => throw new InvalidCastException();
+	public virtual TimeSpan GetTimeSpan() => throw new InvalidCastException();
 
 	public abstract string GetString();
 	public abstract object GetValue();
-}
-
-public class IntervalYearToMonthValue : ValueObject
-{
-	private OracleIntervalYM interval = new();
-
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		interval = new();
-		var meta = await reader.ReadByte(token);
-		var hasYears = (meta & 0x01) != 0;
-		var hasMonths = (meta & 0x02) != 0;
-		var isNegative = (meta & 0x80) != 0;
-		if (hasYears) interval.Years = await reader.Read7BitEncodedInt(token);
-		if (hasMonths) interval.Months = await reader.Read7BitEncodedInt(token);
-		if (isNegative)
-		{
-			interval.Years = -interval.Years;
-			interval.Months = -interval.Months;
-		}
-	}
-
-	public override OracleIntervalYM GetOracleIntervalYM()
-	{
-		return interval;
-	}
-
-	public override string GetString()
-	{
-		return interval.ToString();
-	}
-
-	public override string ToString()
-	{
-		return interval.ToString();
-	}
-
-	public override object GetValue()
-	{
-		return interval;
-	}
 }

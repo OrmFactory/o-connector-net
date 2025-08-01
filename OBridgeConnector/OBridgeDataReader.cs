@@ -80,6 +80,8 @@ public class OBridgeDataReader : DbDataReader
 
 	public DateTimeOffset GetDateTimeOffset(int ordinal) => GetValueObject(ordinal).GetDateTimeOffset();
 	public OracleIntervalYM GetOracleIntervalYM(int ordinal) => GetValueObject(ordinal).GetOracleIntervalYM();
+	public OracleIntervalDS GetOracleIntervalDS(int ordinal) => GetValueObject(ordinal).GetOracleIntervalDS();
+	public TimeSpan GetTimeSpan(int ordinal) => GetValueObject(ordinal).GetTimeSpan();
 
 	public override T GetFieldValue<T>(int ordinal)
 	{
@@ -99,6 +101,8 @@ public class OBridgeDataReader : DbDataReader
 		if (typeof(T) == typeof(Stream)) return (T)(object)GetStream(ordinal);
 		if (typeof(T) == typeof(TextReader) || typeof(T) == typeof(StringReader)) return (T)(object)GetTextReader(ordinal);
 		if (typeof(T) == typeof(OracleIntervalYM)) return (T)(object)GetOracleIntervalYM(ordinal);
+		if (typeof(T) == typeof(OracleIntervalDS)) return (T)(object)GetOracleIntervalDS(ordinal);
+		if (typeof(T) == typeof(TimeSpan)) return (T)(object)GetTimeSpan(ordinal);
 		return base.GetFieldValue<T>(ordinal);
 	}
 

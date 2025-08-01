@@ -62,13 +62,12 @@ public class AsyncBinaryReader
 
 		while (true)
 		{
-			byte b = await ReadByte(token).ConfigureAwait(false);
+			var b = await ReadByte(token).ConfigureAwait(false);
 			count |= (b & 0x7F) << shift;
 			if ((b & 0x80) == 0) break;
 
 			shift += 7;
-			if (shift >= 35)
-				throw new FormatException("Too many bytes in 7-bit encoded int.");
+			if (shift >= 35) throw new FormatException("Too many bytes in 7-bit encoded int.");
 		}
 
 		return count;
