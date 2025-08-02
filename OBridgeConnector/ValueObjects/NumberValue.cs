@@ -146,4 +146,9 @@ public class NumberValue : ValueObject
 	{
 		return GetDecimal();
 	}
+
+	public override Type GetDefaultType()
+	{
+		return typeof(decimal);
+	}
 }

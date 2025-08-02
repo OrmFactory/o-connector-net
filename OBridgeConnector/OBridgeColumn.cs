@@ -5,6 +5,8 @@ namespace OBridgeConnector;
 
 public class OBridgeColumn : DbColumn
 {
+	public ValueObject ValueObject = NullValueObject.Instance;
+
 	public async Task LoadFromReader(int ordinal, AsyncBinaryReader reader, CancellationToken token)
 	{
 		ColumnOrdinal = ordinal;
@@ -19,6 +21,7 @@ public class OBridgeColumn : DbColumn
 		var hasBaseTableName = (propertyPresenceBits & 0x80) != 0;
 
 		ColumnName = await reader.ReadString(token);
+		DataTypeName = await reader.ReadString(token);
 		if (hasAllowDbNull) AllowDBNull = await reader.ReadByte(token) != 0;
 		if (hasColumnSize) ColumnSize = await reader.ReadByte(token);
 		if (hasNumericPrecision) NumericPrecision = await reader.ReadByte(token);
@@ -31,9 +34,12 @@ public class OBridgeColumn : DbColumn
 		if (hasIsExpression) IsExpression = await reader.ReadByte(token) != 0;
 		if (hasBaseColumnName) BaseColumnName = await reader.ReadString(token);
 		if (hasBaseTableName) BaseTableName = await reader.ReadString(token);
+
+		ValueObject = CreateValueObject();
+		DataType = ValueObject.GetDefaultType();
 	}
 
-	public ValueObject CreateValueObject()
+	private ValueObject CreateValueObject()
 	{
 		var dataType = DataTypeName?.ToLower() ?? "";
 
