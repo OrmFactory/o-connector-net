@@ -46,7 +46,7 @@ public class OBridgeColumn : DbColumn
 		}
 
 		if (dataType == "interval year to month") return new IntervalYearToMonthValue();
-		if (dataType == "interval day to second") return new IntervalDayToSecond(column.NumericScale ?? 0);
+		if (dataType == "interval day to second") return new IntervalDayToSecondValue(NumericScale ?? 0);
 		if (dataType is "char" or "nchar" or "varchar2" or "nvarchar2" or "clob" or "nclob") return new StringValue();
 		if (dataType is "raw" or "long raw" or "blob" or "bfile") return new BinaryValue();
 		if (dataType == "boolean") return new BooleanValue();

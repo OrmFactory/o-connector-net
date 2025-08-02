@@ -26,4 +26,5 @@ public abstract class ValueObject
 
 	public abstract string GetString();
 	public abstract object GetValue();
+	public abstract Type GetDefaultType();
 }
