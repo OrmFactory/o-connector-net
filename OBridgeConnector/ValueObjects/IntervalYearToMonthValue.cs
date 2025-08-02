@@ -41,4 +41,9 @@ public class IntervalYearToMonthValue : ValueObject
 	{
 		return interval;
 	}
+
+	public override Type GetDefaultType()
+	{
+		return typeof(OracleIntervalYM);
+	}
 }

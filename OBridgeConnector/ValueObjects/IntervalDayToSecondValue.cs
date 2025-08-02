@@ -63,6 +63,11 @@ public class IntervalDayToSecondValue : ValueObject
 		return interval;
 	}
 
+	public override Type GetDefaultType()
+	{
+		return typeof(OracleIntervalDS);
+	}
+
 	private static readonly int[] PowersOf10 = new int[]
 	{
 		1,              // 10^0

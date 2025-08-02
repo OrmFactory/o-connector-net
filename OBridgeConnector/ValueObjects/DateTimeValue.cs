@@ -138,6 +138,12 @@ public class DateTimeValue : ValueObject
 		return GetDateTime();
 	}
 
+	public override Type GetDefaultType()
+	{
+		if (timeZone == TimeZoneEnum.WithTimeZone) return typeof(DateTimeOffset);
+		return typeof(DateTime);
+	}
+
 	private static readonly int[] FractionBitLengths = new int[]
 	{
 		0,  // precision 0

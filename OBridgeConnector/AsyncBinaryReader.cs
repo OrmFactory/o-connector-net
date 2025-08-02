@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -44,6 +45,18 @@ public class AsyncBinaryReader
 	{
 		await ReadExact(buffer, 2, token).ConfigureAwait(false);
 		return BitConverter.ToUInt16(buffer, 0);
+	}
+
+	public async Task<float> ReadFloat(CancellationToken token)
+	{
+		await ReadExact(buffer, 4, token).ConfigureAwait(false);
+		return BinaryPrimitives.ReadSingleLittleEndian(buffer);
+	}
+
+	public async Task<double> ReadDouble(CancellationToken token)
+	{
+		await ReadExact(buffer, 8, token).ConfigureAwait(false);
+		return BinaryPrimitives.ReadDoubleLittleEndian(buffer);
 	}
 
 	public async Task<string> ReadString(CancellationToken token)
