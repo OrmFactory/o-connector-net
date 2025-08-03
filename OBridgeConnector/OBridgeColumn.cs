@@ -5,6 +5,8 @@ namespace OBridgeConnector;
 
 public class OBridgeColumn : DbColumn
 {
+	public int NullableOrdinal = 0;
+	public bool IsNullable => AllowDBNull ?? true;
 	public ValueObject ValueObject = NullValueObject.Instance;
 
 	public async Task LoadFromReader(int ordinal, AsyncBinaryReader reader, CancellationToken token)

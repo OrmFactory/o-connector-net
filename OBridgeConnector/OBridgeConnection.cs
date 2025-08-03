@@ -217,7 +217,8 @@ public class OBridgeConnection : DbConnection
 			SetState(ConnectionState.Open);
 		}
 
-		var dbReader = await OBridgeDataReader.Create(reader, token);
+		var dbReader = new OBridgeDataReader(reader);
+		await dbReader.ReadHeader(token);
 		return dbReader;
 	}
 }

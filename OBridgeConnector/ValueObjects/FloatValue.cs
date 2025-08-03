@@ -11,6 +11,11 @@ public class FloatValue : ValueObject
 		value = await reader.ReadFloat(token);
 	}
 
+	public override float GetFloat()
+	{
+		return value;
+	}
+
 	public override string GetString()
 	{
 		return value.ToString(CultureInfo.InvariantCulture);

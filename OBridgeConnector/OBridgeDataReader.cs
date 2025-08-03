@@ -1,43 +1,56 @@
-﻿using OBridgeConnector.ValueObjects;
+﻿using OBridgeConnector.OracleTypes;
+using OBridgeConnector.ValueObjects;
+using System;
 using System.Collections;
+using System.Collections.ObjectModel;
+using System.Data;
 using System.Data.Common;
-using System.Data.SqlTypes;
-using OBridgeConnector.OracleTypes;
 
 namespace OBridgeConnector;
 
 public class OBridgeDataReader : DbDataReader
 {
-	private readonly List<OBridgeColumn> columns;
+	private readonly List<OBridgeColumn> columns = new();
+	private readonly AsyncBinaryReader reader;
 
-	private OBridgeDataReader(List<OBridgeColumn> columns)
+	public OBridgeDataReader(AsyncBinaryReader reader)
 	{
-		this.columns = columns;
+		this.reader = reader;
 	}
 
-	public override int RecordsAffected { get; } = -1;
-	public override bool HasRows { get; } = false;
+	private int recordsAffected = -1;
+	public override int RecordsAffected => recordsAffected;
+	private bool hasRows = false;
+	public override bool HasRows => hasRows;
 	public override bool IsClosed { get; } = false;
 
-	private List<ValueObject>? currentRow = null;
+	private int currentRowIndex = -1;
+	private int totalRowCount = -1;
+	public int CurrentRowIndex => currentRowIndex;
+	public int RowCount => totalRowCount;
 
-	public static async Task<OBridgeDataReader> Create(AsyncBinaryReader reader, CancellationToken token)
+	public async Task ReadHeader(CancellationToken token)
 	{
+		columns.Clear();
+
 		byte responseCode = await reader.ReadByte(token);
 		if (responseCode == (byte)ResponseTypeEnum.Error) await ReadError(reader, token);
 		if (responseCode == (byte)ResponseTypeEnum.TableHeader)
 		{
 			int columnCount = await reader.Read7BitEncodedInt(token);
-			var columnList = new List<OBridgeColumn>();
+			int nullableOrdinal = 0;
 			for (int i = 0; i < columnCount; i++)
 			{
 				var column = new OBridgeColumn();
 				await column.LoadFromReader(i, reader, token);
-				columnList.Add(column);
+				if (column.IsNullable)
+				{
+					column.NullableOrdinal = nullableOrdinal;
+					nullableOrdinal++;
+				}
+				columns.Add(column);
 			}
-
-			var dbReader = new OBridgeDataReader(columnList);
-			return dbReader;
+			return;
 		}
 
 		throw new Exception("Expected TableHeader or Error");
@@ -52,8 +65,9 @@ public class OBridgeDataReader : DbDataReader
 
 	private ValueObject GetValueObject(int ordinal)
 	{
-		if (currentRow == null) throw new InvalidOperationException("Row not loaded");
-		return currentRow[ordinal];
+		if (!hasRows) throw new InvalidOperationException("Row is not loaded");
+		if (IsDBNull(ordinal)) return NullValueObject.Instance;
+		return columns[ordinal].ValueObject;
 	}
 
 	public override bool GetBoolean(int ordinal) => GetValueObject(ordinal).GetBoolean();
@@ -108,32 +122,46 @@ public class OBridgeDataReader : DbDataReader
 
 	public override string GetName(int ordinal)
 	{
-		throw new NotImplementedException();
+		return columns[ordinal].ColumnName;
 	}
 
 	public override int GetOrdinal(string name)
 	{
-		throw new NotImplementedException();
+		for (int i = 0; i < columns.Count; i++)
+		{
+			if (columns[i].ColumnName.Equals(name, StringComparison.OrdinalIgnoreCase))
+				return i;
+		}
+		throw new IndexOutOfRangeException($"Column '{name}' not found.");
 	}
 
 	public override int GetValues(object[] values)
 	{
-		throw new NotImplementedException();
+		int count = Math.Min(values.Length, columns.Count);
+		for (int i = 0; i < count; i++)
+			values[i] = GetValue(i);
+
+		return count;
 	}
 
 	public override bool IsDBNull(int ordinal)
 	{
-		throw new NotImplementedException();
+		var column = columns[ordinal];
+		if (!column.IsNullable) return false;
+
+		int byteIndex = column.NullableOrdinal / 8;
+		int bitIndex = column.NullableOrdinal % 8;
+		return (nullMask[byteIndex] & (1 << bitIndex)) != 0;
 	}
 
 	public override string GetDataTypeName(int ordinal) => columns[ordinal].DataTypeName ?? "";
 	public override Type GetFieldType(int ordinal) => columns[ordinal].DataType;
 
-	public override int FieldCount { get; }
+	public override int FieldCount => columns.Count;
 
-	public override object this[int ordinal] => throw new NotImplementedException();
+	public override object this[int ordinal] => GetValue(ordinal);
 
-	public override object this[string name] => throw new NotImplementedException();
+	public override object this[string name] => GetValue(GetOrdinal(name));
 
 	public override bool NextResult()
 	{
@@ -147,13 +175,80 @@ public class OBridgeDataReader : DbDataReader
 
 	public override bool Read()
 	{
-		throw new NotImplementedException();
+		return ReadAsync(CancellationToken.None).GetAwaiter().GetResult();
+	}
+
+	private byte[] nullMask = [];
+
+	public override async Task<bool> ReadAsync(CancellationToken token)
+	{
+		byte code = await reader.ReadByte(token);
+		if (code == (byte)ResponseTypeEnum.RowData)
+		{
+			int nullableColumnsCount = columns.Count(c => c.IsNullable);
+			int nullMaskBytes = (nullableColumnsCount + 7) / 8;
+			nullMask = await reader.ReadBytes(nullMaskBytes, token);
+			for (int i = 0; i < columns.Count; i++)
+			{
+				if (!IsDBNull(i)) await columns[i].ValueObject.ReadFromStream(reader, token);
+			}
+
+			hasRows = true;
+			currentRowIndex++;
+			totalRowCount = currentRowIndex + 1;
+		}
+		else if (code == (byte)ResponseTypeEnum.EndOfRowStream)
+		{
+			recordsAffected = await reader.Read7BitEncodedInt(token);
+			return false;
+		}
+		else if (code == (byte)ResponseTypeEnum.Error)
+		{
+			await ReadError(reader, token);
+			return false;
+		}
+		throw new Exception($"Unexpected response code: {code}");
+	}
+
+	public ReadOnlyCollection<DbColumn> GetColumnSchema()
+	{
+		return columns.Cast<DbColumn>().ToList().AsReadOnly();
+	}
+
+	public override Task<ReadOnlyCollection<DbColumn>> GetColumnSchemaAsync(CancellationToken cancellationToken = new CancellationToken())
+	{
+		return Task.FromResult(columns.Cast<DbColumn>().ToList().AsReadOnly());
+	}
+
+	public override DataTable GetSchemaTable()
+	{
+		var schemaTable = new DataTable("SchemaTable");
+
+		schemaTable.Columns.Add("ColumnName", typeof(string));
+		schemaTable.Columns.Add("ColumnOrdinal", typeof(int));
+		schemaTable.Columns.Add("DataType", typeof(Type));
+		schemaTable.Columns.Add("DataTypeName", typeof(string));
+		schemaTable.Columns.Add("IsNullable", typeof(bool));
+
+		for (int i = 0; i < columns.Count; i++)
+		{
+			var col = columns[i];
+			var row = schemaTable.NewRow();
+			row["ColumnName"] = col.ColumnName;
+			row["ColumnOrdinal"] = i;
+			row["DataType"] = col.DataType;
+			row["DataTypeName"] = col.DataTypeName ?? "";
+			row["IsNullable"] = col.IsNullable;
+			schemaTable.Rows.Add(row);
+		}
+
+		return schemaTable;
 	}
 
 	public override int Depth { get; }
 
 	public override IEnumerator GetEnumerator()
 	{
-		throw new NotImplementedException();
+		while (Read()) yield return this;
 	}
 }

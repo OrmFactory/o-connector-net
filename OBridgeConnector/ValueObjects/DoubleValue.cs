@@ -11,6 +11,11 @@ public class DoubleValue : ValueObject
 		value = await reader.ReadDouble(token);
 	}
 
+	public override double GetDouble()
+	{
+		return value;
+	}
+
 	public override string GetString()
 	{
 		return value.ToString(CultureInfo.InvariantCulture);
