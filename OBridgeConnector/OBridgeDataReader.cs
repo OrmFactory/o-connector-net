@@ -24,11 +24,6 @@ public class OBridgeDataReader : DbDataReader
 	public override bool HasRows => hasRows;
 	public override bool IsClosed { get; } = false;
 
-	private int currentRowIndex = -1;
-	private int totalRowCount = -1;
-	public int CurrentRowIndex => currentRowIndex;
-	public int RowCount => totalRowCount;
-
 	public async Task ReadHeader(CancellationToken token)
 	{
 		columns.Clear();
@@ -194,8 +189,6 @@ public class OBridgeDataReader : DbDataReader
 			}
 
 			hasRows = true;
-			currentRowIndex++;
-			totalRowCount = currentRowIndex + 1;
 		}
 		else if (code == (byte)ResponseTypeEnum.EndOfRowStream)
 		{

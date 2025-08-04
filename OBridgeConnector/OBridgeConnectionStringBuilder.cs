@@ -101,18 +101,18 @@ public class OBridgeConnectionStringBuilder : DbConnectionStringBuilder
 		if (string.IsNullOrWhiteSpace(OraclePassword))
 			throw new ArgumentException("OraclePassword is required");
 
+		if (!string.IsNullOrWhiteSpace(OracleSID) && !string.IsNullOrWhiteSpace(OracleServiceName))
+			throw new ArgumentException("Only one of OracleSID or OracleServiceName should be specified");
+
 		if (string.IsNullOrWhiteSpace(OracleSID) && string.IsNullOrWhiteSpace(OracleServiceName))
 			throw new ArgumentException("Either OracleSID or OracleServiceName must be specified");
 
-		var connectData = OracleSID != null
-			? $"(SID={OracleSID})"
-			: $"(SERVICE_NAME={OracleServiceName})";
+		var host = OraclePort != null ? $"{OracleHost}:{OraclePort}" : OracleHost;
 
-		var address =
-			$"(PROTOCOL=TCP)(HOST={OracleHost})"
-			+ (OraclePort != null ? $"(PORT={OraclePort})" : "");
+		string dataSource = !string.IsNullOrWhiteSpace(OracleServiceName)
+			? $"{host}/{OracleServiceName}"
+			: $"{host}//{OracleSID}";
 
-		var dataSource = $"(DESCRIPTION=(ADDRESS={address})(CONNECT_DATA={connectData}))";
 		return $"User Id={OracleUser};Password={OraclePassword};Data Source={dataSource}";
 	}
 
