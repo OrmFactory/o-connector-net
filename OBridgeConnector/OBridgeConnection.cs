@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Security;
 using System.Net.Sockets;
 using ZstdSharp;
 
@@ -16,10 +17,11 @@ public class OBridgeConnection : DbConnection
 	public override string Database { get; } = "";
 	public override string DataSource { get; } = "";
 	public override string ServerVersion { get; } = "";
-	public Stream? Stream => stream;
+	public Stream? Stream => sslStream ?? stream;
 
-	private TcpClient client = new TcpClient();
+	private TcpClient client = new();
 	private Stream? stream;
+	private SslStream? sslStream;
 	private DecompressionStream? decompressionStream;
 	private AsyncBinaryReader? reader;
 
@@ -57,7 +59,7 @@ public class OBridgeConnection : DbConnection
 
 	public override void Open()
 	{
-		OpenAsync().GetAwaiter().GetResult();
+		OpenAsync(CancellationToken.None).GetAwaiter().GetResult();
 	}
 
 	public override async Task CloseAsync()
@@ -79,8 +81,9 @@ public class OBridgeConnection : DbConnection
 		catch { }
 
 		reader = null;
-		client.Close();
+		client.Dispose();
 		stream = null;
+		sslStream = null;
 		decompressionStream = null;
 	}
 
@@ -107,16 +110,13 @@ public class OBridgeConnection : DbConnection
 			var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
 			await CreateTransport(builder, token);
 			var request = GetConnectionRequest(builder);
-			await request.SendAsync(stream, token);
+			await request.SendAsync(Stream, token);
 			await ReadConnectionResponse(token);
 			SetState(ConnectionState.Open);
 		}
-		catch (Exception e)
+		catch (Exception)
 		{
-			SetState(ConnectionState.Closed);
-			stream?.Close();
-			client.Close();
-			stream = null;
+			await CloseAsync();
 			throw;
 		}
 	}
@@ -128,16 +128,40 @@ public class OBridgeConnection : DbConnection
 
 	private async Task CreateTransport(OBridgeConnectionStringBuilder builder, CancellationToken token)
 	{
-		var host = builder.BridgeHost;
-		if (host == null) throw new ArgumentException("BridgeHost is required");
-		var sslMode = builder.SslMode;
-		if (sslMode == null) sslMode = SslMode.Require;
+		var host = builder.BridgeHost ?? throw new ArgumentException("BridgeHost is required");
+		var sslMode = builder.SslMode ?? SslMode.Require;
 
 		var port = sslMode == SslMode.None ? 0x0f0f : 0x0fac;
 		port = builder.BridgePort ?? port;
+		
 		await client.ConnectAsync(host, port, token);
+		
 		stream = client.GetStream();
-		reader = new AsyncBinaryReader(stream);
+
+		if (sslMode == SslMode.None)
+		{
+			reader = new AsyncBinaryReader(stream);
+			return;
+		}
+
+		sslStream = new SslStream(stream, leaveInnerStreamOpen: false,
+			userCertificateValidationCallback: (sender, cert, chain, errors) =>
+			{
+				if (sslMode == SslMode.Strict)
+				{
+					return errors == SslPolicyErrors.None;
+				}
+				return true;
+			});
+
+		await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
+		{
+			TargetHost = host,
+			EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13,
+			RemoteCertificateValidationCallback = null
+		}, token);
+
+		reader = new AsyncBinaryReader(sslStream);
 	}
 
 	private async Task ReadConnectionResponse(CancellationToken token)
@@ -151,7 +175,7 @@ public class OBridgeConnection : DbConnection
 
 			if (compressionFlag == 1)
 			{
-				decompressionStream = new DecompressionStream(stream);
+				decompressionStream = new DecompressionStream(Stream);
 				reader = new AsyncBinaryReader(decompressionStream);
 			}
 			return;
@@ -205,11 +229,11 @@ public class OBridgeConnection : DbConnection
 		{
 			await CreateTransport(builder, token);
 			var connectionRequest = GetConnectionRequest(builder);
-			await connectionRequest.SendAsync(stream, token);
+			await connectionRequest.SendAsync(Stream, token);
 			SetState(ConnectionState.Connecting);
 		}
 
-		await request.SendAsync(stream, token);
+		await request.SendAsync(Stream, token);
 
 		if (State == ConnectionState.Connecting)
 		{
