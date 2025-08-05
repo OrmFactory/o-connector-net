@@ -30,6 +30,11 @@ public class OBridgeDataReader : DbDataReader
 
 		byte responseCode = await reader.ReadByte(token);
 		if (responseCode == (byte)ResponseTypeEnum.Error) await ReadError(reader, token);
+		if (responseCode == (byte)ResponseTypeEnum.OracleQueryError)
+		{
+			var message = await reader.ReadString(token);
+			throw new Exception(message);
+		}
 		if (responseCode == (byte)ResponseTypeEnum.TableHeader)
 		{
 			int columnCount = await reader.Read7BitEncodedInt(token);
@@ -189,6 +194,7 @@ public class OBridgeDataReader : DbDataReader
 			}
 
 			hasRows = true;
+			return true;
 		}
 		else if (code == (byte)ResponseTypeEnum.EndOfRowStream)
 		{
