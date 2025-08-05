@@ -151,4 +151,47 @@ public class NumberValue : ValueObject
 	{
 		return typeof(decimal);
 	}
+
+	public override long GetInt64()
+	{
+		if (isFormatA) return formatAValue;
+
+		if (valueScale >= 0)
+		{
+			long result = 0;
+			foreach (var b in base100Digits)
+			{
+				if (result > (long.MaxValue - b) / 100)
+					throw new OverflowException("Value is too large for Int64.");
+				result = result * 100 + b;
+			}
+
+			for (int i = 0; i < valueScale; i++)
+			{
+				if (result > long.MaxValue / 10)
+					throw new OverflowException("Value is too large for Int64.");
+				result *= 10;
+			}
+
+			return isNegative ? -result : result;
+		}
+
+		var dec = GetDecimal();
+		if (dec < long.MinValue || dec > long.MaxValue) throw new OverflowException("Value is outside the range of Int64.");
+		return (long)Math.Truncate(dec);
+	}
+
+	public override int GetInt32()
+	{
+		var val = GetInt64();
+		if (val < int.MinValue || val > int.MaxValue) throw new OverflowException("Value is outside the range of Int32.");
+		return (int)val;
+	}
+
+	public override short GetInt16()
+	{
+		var val = GetInt64();
+		if (val < short.MinValue || val > short.MaxValue) throw new OverflowException("Value is outside the range of Int16.");
+		return (short)val;
+	}
 }

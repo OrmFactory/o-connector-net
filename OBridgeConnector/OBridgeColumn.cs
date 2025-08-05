@@ -47,12 +47,8 @@ public class OBridgeColumn : DbColumn
 
 		if (dataType.StartsWith("number")) return new NumberValue(NumericPrecision, NumericScale);
 		if (dataType == "date") return new DateTimeValue(NumericScale ?? 0, TimeZoneEnum.WithoutTimeZone);
-		if (dataType.StartsWith("timestamp"))
-		{
-			if (dataType == "timestamp with time zone") return new DateTimeValue(NumericScale ?? 0, TimeZoneEnum.WithTimeZone);
-			return new DateTimeValue(NumericScale ?? 0, TimeZoneEnum.LocalTimeZone);
-		}
-
+		if (dataType == "timestamp with time zone") return new DateTimeValue(NumericScale ?? 0, TimeZoneEnum.WithTimeZone);
+		if (dataType == "timestamp with local time zone") return new DateTimeValue(NumericScale ?? 0, TimeZoneEnum.LocalTimeZone);
 		if (dataType == "interval year to month") return new IntervalYearToMonthValue();
 		if (dataType == "interval day to second") return new IntervalDayToSecondValue(NumericScale ?? 0);
 		if (dataType is "char" or "nchar" or "varchar2" or "nvarchar2" or "clob" or "nclob") return new StringValue();
