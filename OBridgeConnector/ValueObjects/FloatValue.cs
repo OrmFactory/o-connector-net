@@ -16,6 +16,16 @@ public class FloatValue : ValueObject
 		return value;
 	}
 
+	public override double GetDouble()
+	{
+		return value;
+	}
+
+	public override decimal GetDecimal()
+	{
+		return (decimal)value;
+	}
+
 	public override string GetString()
 	{
 		return value.ToString(CultureInfo.InvariantCulture);

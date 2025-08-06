@@ -11,9 +11,19 @@ public class DoubleValue : ValueObject
 		value = await reader.ReadDouble(token);
 	}
 
+	public override decimal GetDecimal()
+	{
+		return (decimal)value;
+	}
+
 	public override double GetDouble()
 	{
 		return value;
+	}
+
+	public override float GetFloat()
+	{
+		return (float)value;
 	}
 
 	public override string GetString()

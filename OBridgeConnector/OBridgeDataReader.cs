@@ -151,7 +151,7 @@ public class OBridgeDataReader : DbDataReader
 
 		int byteIndex = column.NullableOrdinal / 8;
 		int bitIndex = column.NullableOrdinal % 8;
-		return (nullMask[byteIndex] & (1 << bitIndex)) != 0;
+		return (nullMask[byteIndex] & (1 << bitIndex)) == 0;
 	}
 
 	public override string GetDataTypeName(int ordinal) => columns[ordinal].DataTypeName ?? "";
