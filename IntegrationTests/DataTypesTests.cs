@@ -168,4 +168,45 @@ public class DataTypesTests
 	//	}
 	//}
 
+	[Fact]
+	public async Task OracleDate_ShouldPreserveTimeComponent()
+	{
+		await using var connection = new OBridgeConnection(ConnectionStrings.PlainConnectionString);
+		await connection.OpenAsync();
+
+		await using var command = connection.CreateCommand();
+		command.CommandText = @"
+		SELECT
+			DATE '0001-01-01' AS D1,
+			TO_DATE('1900-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS') AS D2,
+			TO_DATE('1999-12-31 13:02:13', 'YYYY-MM-DD HH24:MI:SS') AS D3,
+			TO_DATE('2025-08-06 12:34:56', 'YYYY-MM-DD HH24:MI:SS') AS D4,
+			TO_DATE('9999-12-31 00:00:01', 'YYYY-MM-DD HH24:MI:SS') AS D5,
+			SYSDATE AS D6
+		FROM DUAL";
+
+		await using var reader = await command.ExecuteReaderAsync();
+		Assert.True(await reader.ReadAsync());
+
+		Assert.Equal(new DateTime(1, 1, 1, 0, 0, 0), reader.GetDateTime(0));
+		Assert.Equal("0001-01-01 00:00:00", reader.GetString(0));
+
+		Assert.Equal(new DateTime(1900, 12, 31, 23, 59, 59), reader.GetDateTime(1));
+		Assert.Equal("1900-12-31 23:59:59", reader.GetString(1));
+
+		Assert.Equal(new DateTime(1999, 12, 31, 13, 2, 13), reader.GetDateTime(2));
+		Assert.Equal("1999-12-31 13:02:13", reader.GetString(2));
+
+		Assert.Equal(new DateTime(2025, 8, 6, 12, 34, 56), reader.GetDateTime(3));
+		Assert.Equal("2025-08-06 12:34:56", reader.GetString(3));
+
+		Assert.Equal(new DateTime(9999, 12, 31, 0, 0, 1), reader.GetDateTime(4));
+		Assert.Equal("9999-12-31 00:00:01", reader.GetString(4));
+
+		var d6 = reader.GetDateTime(5);
+		var s6 = reader.GetString(5);
+		var now = DateTime.Now;
+		Assert.True((now - d6).Duration() < TimeSpan.FromMinutes(5));
+		Assert.Equal(d6.ToString("yyyy-MM-dd HH:mm:ss"), s6);
+	}
 }
