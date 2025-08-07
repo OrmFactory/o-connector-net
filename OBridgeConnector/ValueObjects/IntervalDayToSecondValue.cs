@@ -5,7 +5,7 @@ namespace OBridgeConnector.ValueObjects;
 public class IntervalDayToSecondValue : ValueObject
 {
 	private readonly int precision;
-	private OracleIntervalDS interval = new();
+	private OBridgeIntervalDS interval = new();
 
 	public IntervalDayToSecondValue(int precision)
 	{
@@ -74,7 +74,7 @@ public class IntervalDayToSecondValue : ValueObject
 		}
 	}
 
-	public override OracleIntervalDS GetOracleIntervalDS()
+	public override OBridgeIntervalDS GetIntervalDS()
 	{
 		return interval;
 	}
@@ -96,7 +96,7 @@ public class IntervalDayToSecondValue : ValueObject
 
 	public override Type GetDefaultType()
 	{
-		return typeof(OracleIntervalDS);
+		return typeof(OBridgeIntervalDS);
 	}
 
 	private static readonly int[] PowersOf10 = new int[]

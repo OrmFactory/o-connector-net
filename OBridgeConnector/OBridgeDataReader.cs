@@ -95,8 +95,8 @@ public class OBridgeDataReader : DbDataReader
 	public override object GetValue(int ordinal) => GetValueObject(ordinal).GetValue();
 
 	public DateTimeOffset GetDateTimeOffset(int ordinal) => GetValueObject(ordinal).GetDateTimeOffset();
-	public OracleIntervalYM GetOracleIntervalYM(int ordinal) => GetValueObject(ordinal).GetOracleIntervalYM();
-	public OracleIntervalDS GetOracleIntervalDS(int ordinal) => GetValueObject(ordinal).GetOracleIntervalDS();
+	public OBridgeIntervalYM GetIntervalYM(int ordinal) => GetValueObject(ordinal).GetIntervalYM();
+	public OBridgeIntervalDS GetIntervalDS(int ordinal) => GetValueObject(ordinal).GetIntervalDS();
 	public TimeSpan GetTimeSpan(int ordinal) => GetValueObject(ordinal).GetTimeSpan();
 	public byte[] GetBinary(int ordinal) => GetValueObject(ordinal).GetBinary();
 
@@ -117,8 +117,8 @@ public class OBridgeDataReader : DbDataReader
 		if (typeof(T) == typeof(Guid)) return (T)(object)GetGuid(ordinal);
 		if (typeof(T) == typeof(Stream)) return (T)(object)GetStream(ordinal);
 		if (typeof(T) == typeof(TextReader) || typeof(T) == typeof(StringReader)) return (T)(object)GetTextReader(ordinal);
-		if (typeof(T) == typeof(OracleIntervalYM)) return (T)(object)GetOracleIntervalYM(ordinal);
-		if (typeof(T) == typeof(OracleIntervalDS)) return (T)(object)GetOracleIntervalDS(ordinal);
+		if (typeof(T) == typeof(OBridgeIntervalYM)) return (T)(object)GetIntervalYM(ordinal);
+		if (typeof(T) == typeof(OBridgeIntervalDS)) return (T)(object)GetIntervalDS(ordinal);
 		if (typeof(T) == typeof(TimeSpan)) return (T)(object)GetTimeSpan(ordinal);
 		if (typeof(T) == typeof(byte[])) return (T)(object)GetBinary(ordinal);
 		return base.GetFieldValue<T>(ordinal);

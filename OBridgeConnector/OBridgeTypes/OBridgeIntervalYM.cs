@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OBridgeConnector.OracleTypes;
 
-public class OracleIntervalYM
+public class OBridgeIntervalYM
 {
 	public int Years;
 	public int Months;

@@ -1,6 +1,6 @@
 ﻿namespace OBridgeConnector.OracleTypes;
 
-public class OracleIntervalDS
+public class OBridgeIntervalDS
 {
 	public int Days;
 	public int Hours;

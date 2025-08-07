@@ -20,8 +20,8 @@ public abstract class ValueObject
 	public virtual short GetInt16() => throw new InvalidCastException();
 	public virtual int GetInt32() => throw new InvalidCastException();
 	public virtual long GetInt64() => throw new InvalidCastException();
-	public virtual OracleIntervalYM GetOracleIntervalYM() => throw new InvalidCastException();
-	public virtual OracleIntervalDS GetOracleIntervalDS() => throw new InvalidCastException();
+	public virtual OBridgeIntervalYM GetIntervalYM() => throw new InvalidCastException();
+	public virtual OBridgeIntervalDS GetIntervalDS() => throw new InvalidCastException();
 	public virtual TimeSpan GetTimeSpan() => throw new InvalidCastException();
 	public virtual byte[] GetBinary() => throw new InvalidCastException();
 

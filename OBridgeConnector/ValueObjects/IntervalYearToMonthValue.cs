@@ -4,7 +4,7 @@ namespace OBridgeConnector.ValueObjects;
 
 public class IntervalYearToMonthValue : ValueObject
 {
-	private OracleIntervalYM interval = new();
+	private OBridgeIntervalYM interval = new();
 
 	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
 	{
@@ -38,7 +38,7 @@ public class IntervalYearToMonthValue : ValueObject
 		}
 	}
 
-	public override OracleIntervalYM GetOracleIntervalYM()
+	public override OBridgeIntervalYM GetIntervalYM()
 	{
 		return interval;
 	}
@@ -60,6 +60,6 @@ public class IntervalYearToMonthValue : ValueObject
 
 	public override Type GetDefaultType()
 	{
-		return typeof(OracleIntervalYM);
+		return typeof(OBridgeIntervalYM);
 	}
 }
