@@ -14,6 +14,11 @@ public class NullValueObject : ValueObject
 		return Task.CompletedTask;
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		return;
+	}
+
 	public override string GetString()
 	{
 		throw new NullReferenceException();

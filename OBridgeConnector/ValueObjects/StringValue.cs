@@ -9,6 +9,11 @@ public class StringValue : ValueObject
 		value = await reader.ReadString(token);
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		value = reader.ReadString();
+	}
+
 	public override string GetString()
 	{
 		return value;

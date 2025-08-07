@@ -43,6 +43,37 @@ public class IntervalDayToSecondValue : ValueObject
 		}
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		interval = new();
+		var meta = reader.ReadByte();
+		var hasDays = (meta & 0x01) != 0;
+		var hasHours = (meta & 0x02) != 0;
+		var hasMinutes = (meta & 0x04) != 0;
+		var hasSeconds = (meta & 0x08) != 0;
+		var hasFractionalSeconds = (meta & 0x10) != 0;
+		var isNegative = (meta & 0x80) != 0;
+
+		if (hasDays) interval.Days = reader.Read7BitEncodedInt();
+		if (hasHours) interval.Hours = reader.Read7BitEncodedInt();
+		if (hasMinutes) interval.Minutes = reader.Read7BitEncodedInt();
+		if (hasSeconds) interval.Seconds = reader.Read7BitEncodedInt();
+		if (hasFractionalSeconds && precision > 0)
+		{
+			var fractional = reader.Read7BitEncodedInt();
+			interval.Nanoseconds = fractional * PowersOf10[9 - precision];
+		}
+
+		if (isNegative)
+		{
+			interval.Days = -interval.Days;
+			interval.Hours = -interval.Hours;
+			interval.Minutes = -interval.Minutes;
+			interval.Seconds = -interval.Seconds;
+			interval.Nanoseconds = -interval.Nanoseconds;
+		}
+	}
+
 	public override OracleIntervalDS GetOracleIntervalDS()
 	{
 		return interval;

@@ -11,6 +11,11 @@ public class DoubleValue : ValueObject
 		value = await reader.ReadDouble(token);
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		value = reader.ReadDouble();
+	}
+
 	public override decimal GetDecimal()
 	{
 		return (decimal)value;

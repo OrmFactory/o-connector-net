@@ -23,8 +23,10 @@ public abstract class ValueObject
 	public virtual OracleIntervalYM GetOracleIntervalYM() => throw new InvalidCastException();
 	public virtual OracleIntervalDS GetOracleIntervalDS() => throw new InvalidCastException();
 	public virtual TimeSpan GetTimeSpan() => throw new InvalidCastException();
+	public virtual byte[] GetBinary() => throw new InvalidCastException();
 
 	public abstract string GetString();
 	public abstract object GetValue();
 	public abstract Type GetDefaultType();
+	public abstract void ReadFromSpan(ref SpanReader reader);
 }

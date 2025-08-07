@@ -9,6 +9,11 @@ public class BooleanValue : ValueObject
 		value = await reader.ReadByte(token) > 0;
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		value = reader.ReadByte() > 0;
+	}
+
 	public override bool GetBoolean()
 	{
 		return value;

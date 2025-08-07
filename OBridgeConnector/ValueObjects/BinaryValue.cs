@@ -10,6 +10,12 @@ public class BinaryValue : ValueObject
 		value = await reader.ReadBytes(byteCount, token);
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		var byteCount = reader.Read7BitEncodedInt();
+		value = reader.ReadBytes(byteCount).ToArray();
+	}
+
 	public override long GetBytes(long dataOffset, byte[]? buffer, int bufferOffset, int length)
 	{
 		if (dataOffset < 0 || dataOffset > value.Length)
@@ -30,6 +36,11 @@ public class BinaryValue : ValueObject
 		Array.Copy(value, (int)dataOffset, buffer, bufferOffset, toCopy);
 
 		return toCopy;
+	}
+
+	public override byte[] GetBinary()
+	{
+		return value;
 	}
 
 	public override Guid GetGuid()

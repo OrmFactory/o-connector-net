@@ -67,6 +67,41 @@ public class DateTimeValue : ValueObject
 		}
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		hour = 0;
+		minute = 0;
+		second = 0;
+		nanosecond = 0;
+		timeZoneOffsetMinutes = 0;
+
+		isDateOnly = reader.ReadBit();
+		hasFraction = reader.ReadBit();
+		hasTimezone = reader.ReadBit();
+
+		year = reader.ReadSignedBits(15);
+		month = reader.ReadBits(4);
+		day = reader.ReadBits(5);
+
+		if (isDateOnly) return;
+
+		hour = reader.ReadBits(5);
+		minute = reader.ReadBits(6);
+		second = reader.ReadBits(6);
+
+		if (hasFraction && precision > 0)
+		{
+			int bitLength = FractionBitLengths[precision];
+			int scaled = reader.ReadBits(bitLength);
+			nanosecond = scaled * PowersOf10[9 - precision];
+		}
+
+		if (hasTimezone)
+		{
+			timeZoneOffsetMinutes = reader.ReadSignedBits(11);
+		}
+	}
+
 	public override string GetString()
 	{
 		return ToString();

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
@@ -108,13 +109,33 @@ public class AsyncBinaryReader
 				int read = await stream.ReadAsync(buf.AsMemory(offset, count), token).ConfigureAwait(false);
 				if (read == 0)
 					throw new EndOfStreamException();
+
 				offset += read;
 				count -= read;
+			}
+
+			if (EnableDataCollection)
+			{
+				collectedData.Write(buf.AsSpan(0, offset));
 			}
 		}
 		finally
 		{
 			Interlocked.Exchange(ref isReading, 0);
 		}
+	}
+
+	public bool EnableDataCollection = false;
+
+	private readonly ArrayBufferWriter<byte> collectedData = new();
+
+	public void ClearCollectionBuffer()
+	{
+		collectedData.Clear();
+	}
+
+	public byte[] GetCollectedData()
+	{
+		return collectedData.WrittenSpan.ToArray();
 	}
 }

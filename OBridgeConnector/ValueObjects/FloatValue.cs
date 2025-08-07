@@ -11,6 +11,11 @@ public class FloatValue : ValueObject
 		value = await reader.ReadFloat(token);
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		value = reader.ReadFloat();
+	}
+
 	public override float GetFloat()
 	{
 		return value;

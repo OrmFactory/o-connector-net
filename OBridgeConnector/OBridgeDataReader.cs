@@ -23,6 +23,8 @@ public class OBridgeDataReader : DbDataReader
 	private bool hasRows = false;
 	public override bool HasRows => hasRows;
 	public override bool IsClosed { get; } = false;
+	
+	public bool EnableRowDataCollection = false;
 
 	public async Task ReadHeader(CancellationToken token)
 	{
@@ -96,6 +98,7 @@ public class OBridgeDataReader : DbDataReader
 	public OracleIntervalYM GetOracleIntervalYM(int ordinal) => GetValueObject(ordinal).GetOracleIntervalYM();
 	public OracleIntervalDS GetOracleIntervalDS(int ordinal) => GetValueObject(ordinal).GetOracleIntervalDS();
 	public TimeSpan GetTimeSpan(int ordinal) => GetValueObject(ordinal).GetTimeSpan();
+	public byte[] GetBinary(int ordinal) => GetValueObject(ordinal).GetBinary();
 
 	public override T GetFieldValue<T>(int ordinal)
 	{
@@ -117,6 +120,7 @@ public class OBridgeDataReader : DbDataReader
 		if (typeof(T) == typeof(OracleIntervalYM)) return (T)(object)GetOracleIntervalYM(ordinal);
 		if (typeof(T) == typeof(OracleIntervalDS)) return (T)(object)GetOracleIntervalDS(ordinal);
 		if (typeof(T) == typeof(TimeSpan)) return (T)(object)GetTimeSpan(ordinal);
+		if (typeof(T) == typeof(byte[])) return (T)(object)GetBinary(ordinal);
 		return base.GetFieldValue<T>(ordinal);
 	}
 
@@ -185,6 +189,9 @@ public class OBridgeDataReader : DbDataReader
 		byte code = await reader.ReadByte(token);
 		if (code == (byte)ResponseTypeEnum.RowData)
 		{
+			reader.EnableDataCollection = EnableRowDataCollection;
+			reader.ClearCollectionBuffer();
+
 			int nullableColumnsCount = columns.Count(c => c.IsNullable);
 			int nullMaskBytes = (nullableColumnsCount + 7) / 8;
 			nullMask = await reader.ReadBytes(nullMaskBytes, token);
@@ -193,20 +200,32 @@ public class OBridgeDataReader : DbDataReader
 				if (!IsDBNull(i)) await columns[i].ValueObject.ReadFromStream(reader, token);
 			}
 
+			if (reader.EnableDataCollection)
+			{
+				reader.EnableDataCollection = false;
+			}
+
 			hasRows = true;
 			return true;
 		}
-		else if (code == (byte)ResponseTypeEnum.EndOfRowStream)
+
+		if (code == (byte)ResponseTypeEnum.EndOfRowStream)
 		{
 			recordsAffected = await reader.Read7BitEncodedInt(token);
 			return false;
 		}
-		else if (code == (byte)ResponseTypeEnum.Error)
+
+		if (code == (byte)ResponseTypeEnum.Error)
 		{
 			await ReadError(reader, token);
 			return false;
 		}
 		throw new Exception($"Unexpected response code: {code}");
+	}
+
+	public byte[] GetRowData()
+	{
+		return reader.GetCollectedData();
 	}
 
 	public ReadOnlyCollection<DbColumn> GetColumnSchema()

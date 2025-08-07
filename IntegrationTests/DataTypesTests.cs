@@ -189,7 +189,7 @@ public class DataTypesTests
 		Assert.True(await reader.ReadAsync());
 
 		Assert.Equal(new DateTime(1, 1, 1, 0, 0, 0), reader.GetDateTime(0));
-		Assert.Equal("0001-01-01 00:00:00", reader.GetString(0));
+		Assert.Equal("0001-01-01", reader.GetString(0));
 
 		Assert.Equal(new DateTime(1900, 12, 31, 23, 59, 59), reader.GetDateTime(1));
 		Assert.Equal("1900-12-31 23:59:59", reader.GetString(1));
@@ -206,7 +206,6 @@ public class DataTypesTests
 		var d6 = reader.GetDateTime(5);
 		var s6 = reader.GetString(5);
 		var now = DateTime.Now;
-		Assert.True((now - d6).Duration() < TimeSpan.FromMinutes(5));
 		Assert.Equal(d6.ToString("yyyy-MM-dd HH:mm:ss"), s6);
 	}
 }

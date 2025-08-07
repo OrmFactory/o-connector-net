@@ -22,6 +22,22 @@ public class IntervalYearToMonthValue : ValueObject
 		}
 	}
 
+	public override void ReadFromSpan(ref SpanReader reader)
+	{
+		interval = new();
+		var meta = reader.ReadByte();
+		var hasYears = (meta & 0x01) != 0;
+		var hasMonths = (meta & 0x02) != 0;
+		var isNegative = (meta & 0x80) != 0;
+		if (hasYears) interval.Years = reader.Read7BitEncodedInt();
+		if (hasMonths) interval.Months = reader.Read7BitEncodedInt();
+		if (isNegative)
+		{
+			interval.Years = -interval.Years;
+			interval.Months = -interval.Months;
+		}
+	}
+
 	public override OracleIntervalYM GetOracleIntervalYM()
 	{
 		return interval;
