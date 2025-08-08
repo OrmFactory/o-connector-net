@@ -20,6 +20,8 @@ Use O-Connector if you:
 - Are working in sandboxed, cross-platform, or containerized environments
 - Are using [O-Bridge](https://github.com/OrmFactory/o-bridge) as a backend protocol layer
 
-## License
 
-MIT
+This project is not affiliated with, endorsed by, or sponsored by Oracle Corporation.  
+"Oracle" is a registered trademark of Oracle Corporation and/or its affiliates.
+
+This library provides an alternative communication layer for Oracle-compatible clients.
