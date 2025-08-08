@@ -221,7 +221,7 @@ public class OBridgeConnection : DbConnection
 		return request;
 	}
 
-	public async Task<OBridgeDataReader> RequestReader(Request request, CancellationToken token)
+	public async Task<OBridgeDataReader> RequestReader(Request request, OBridgeCommand command, CancellationToken token)
 	{
 		var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
 
@@ -241,27 +241,10 @@ public class OBridgeConnection : DbConnection
 			SetState(ConnectionState.Open);
 		}
 
-		var dbReader = new OBridgeDataReader(reader);
+		var dbReader = new OBridgeDataReader(reader, command);
 		await dbReader.ReadHeader(token);
 		return dbReader;
 	}
-}
-
-public class OBridgeParameter : DbParameter
-{
-	public override void ResetDbType()
-	{
-		throw new NotImplementedException();
-	}
-
-	public override DbType DbType { get; set; }
-	public override ParameterDirection Direction { get; set; }
-	public override bool IsNullable { get; set; }
-	[AllowNull] public override string ParameterName { get; set; }
-	[AllowNull] public override string SourceColumn { get; set; }
-	public override object? Value { get; set; }
-	public override bool SourceColumnNullMapping { get; set; }
-	public override int Size { get; set; }
 }
 
 public class OBridgeFactory : DbProviderFactory

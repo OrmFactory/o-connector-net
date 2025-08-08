@@ -12,10 +12,12 @@ public class OBridgeDataReader : DbDataReader
 {
 	private readonly List<OBridgeColumn> columns = new();
 	private readonly AsyncBinaryReader reader;
+	private readonly OBridgeCommand command;
 
-	public OBridgeDataReader(AsyncBinaryReader reader)
+	public OBridgeDataReader(AsyncBinaryReader reader, OBridgeCommand command)
 	{
 		this.reader = reader;
+		this.command = command;
 	}
 
 	private int recordsAffected = -1;
@@ -212,6 +214,7 @@ public class OBridgeDataReader : DbDataReader
 		if (code == (byte)ResponseTypeEnum.EndOfRowStream)
 		{
 			recordsAffected = await reader.Read7BitEncodedInt(token);
+			await ReadOutputParameters(token);
 			return false;
 		}
 
@@ -221,6 +224,20 @@ public class OBridgeDataReader : DbDataReader
 			return false;
 		}
 		throw new Exception($"Unexpected response code: {code}");
+	}
+
+	private async Task ReadOutputParameters(CancellationToken token)
+	{
+		var paramsCount = await reader.Read7BitEncodedInt(token);
+		for (int i = 0; i < paramsCount; i++)
+		{
+			var p = await OBridgeParameter.FromReader(reader, token);
+			if (command.Parameters.Contains(p.ParameterName))
+			{
+				var existingParam = command.Parameters[p.ParameterName];
+				existingParam.Value = p.Value;
+			}
+		}
 	}
 
 	public byte[] GetRowData()

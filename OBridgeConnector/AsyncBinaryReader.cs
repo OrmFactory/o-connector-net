@@ -24,6 +24,12 @@ public class AsyncBinaryReader
 		return buffer[0];
 	}
 
+	public async Task<long> ReadInt64(CancellationToken token)
+	{
+		await ReadExact(buffer, 8, token).ConfigureAwait(false);
+		return BitConverter.ToInt64(buffer, 0);
+	}
+
 	public async Task<int> ReadInt32(CancellationToken token)
 	{
 		await ReadExact(buffer, 4, token).ConfigureAwait(false);
@@ -60,6 +66,21 @@ public class AsyncBinaryReader
 		return BinaryPrimitives.ReadDoubleLittleEndian(buffer);
 	}
 
+	public async Task<bool> ReadBoolean(CancellationToken token)
+	{
+		var b = await ReadByte(token).ConfigureAwait(false);
+		return b > 0;
+	}
+
+	public async Task<decimal> ReadDecimal(CancellationToken token)
+	{
+		int lo = await ReadInt32(token).ConfigureAwait(false);
+		int mid = await ReadInt32(token).ConfigureAwait(false);
+		int hi = await ReadInt32(token).ConfigureAwait(false);
+		int flags = await ReadInt32(token).ConfigureAwait(false);
+		return new decimal(new[] { lo, mid, hi, flags });
+	}
+
 	public async Task<string> ReadString(CancellationToken token)
 	{
 		int length = await Read7BitEncodedInt(token).ConfigureAwait(false);
@@ -67,6 +88,12 @@ public class AsyncBinaryReader
 		byte[] strBuf = new byte[length];
 		await ReadExact(strBuf, length, token).ConfigureAwait(false);
 		return Encoding.UTF8.GetString(strBuf);
+	}
+
+	public async Task<DateTime> ReadDateTime(CancellationToken token)
+	{
+		var ticks = await ReadInt64(token).ConfigureAwait(false);
+		return new DateTime(ticks);
 	}
 
 	public async Task<int> Read7BitEncodedInt(CancellationToken token)
@@ -87,7 +114,13 @@ public class AsyncBinaryReader
 		return count;
 	}
 
-	public virtual async Task<byte[]> ReadBytes(int count, CancellationToken token)
+	public async Task<byte[]> ReadBinary(CancellationToken token)
+	{
+		var len = await Read7BitEncodedInt(token).ConfigureAwait(false);
+		return await ReadBytes(len, token).ConfigureAwait(false);
+	}
+
+	public async Task<byte[]> ReadBytes(int count, CancellationToken token)
 	{
 		var result = new byte[count];
 		await ReadExact(result, count, token).ConfigureAwait(false);

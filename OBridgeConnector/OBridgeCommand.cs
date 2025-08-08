@@ -1,6 +1,8 @@
 ﻿using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection.PortableExecutable;
+using System.Threading;
 
 namespace OBridgeConnector;
 
@@ -15,7 +17,7 @@ public class OBridgeCommand : DbCommand
 
 	public override void Cancel()
 	{
-		throw new NotImplementedException();
+		CancelAsync(CancellationToken.None).GetAwaiter().GetResult();
 	}
 
 	public async Task CancelAsync(CancellationToken token)
@@ -49,9 +51,11 @@ public class OBridgeCommand : DbCommand
 	public override CommandType CommandType { get; set; }
 	public override UpdateRowSource UpdatedRowSource { get; set; }
 	protected override DbConnection? DbConnection { get; set; }
-	protected override DbParameterCollection DbParameterCollection { get; }
 	protected override DbTransaction? DbTransaction { get; set; }
 	public override bool DesignTimeVisible { get; set; }
+
+	private readonly OBridgeParameterCollection parameterCollection = new();
+	protected override DbParameterCollection DbParameterCollection => parameterCollection;
 
 	protected override DbParameter CreateDbParameter()
 	{
@@ -68,18 +72,38 @@ public class OBridgeCommand : DbCommand
 		var request = new Request(CommandEnum.Query);
 		request.WriteByte((byte)behavior);
 		request.WriteString(CommandText);
-		var reader = await connection.RequestReader(request, token);
+		AddParameters(request);
+		var reader = await connection.RequestReader(request, this, token);
 		return reader;
 	}
 
-	public override Task<int> ExecuteNonQueryAsync(CancellationToken token)
+	private void AddParameters(Request request)
 	{
-		return base.ExecuteNonQueryAsync(token);
+		var parameters = parameterCollection.Cast<OBridgeParameter>().ToList();
+		request.Write7BitEncodedInt(parameters.Count);
+		foreach (var parameter in parameters)
+		{
+			parameter.Serialize(request);
+		}
 	}
 
-	public override Task<object?> ExecuteScalarAsync(CancellationToken token)
+	public override async Task<int> ExecuteNonQueryAsync(CancellationToken token)
 	{
-		return base.ExecuteScalarAsync(token);
+		await using var reader = await ExecuteReaderAsync(token).ConfigureAwait(false);
+
+		while (await reader.ReadAsync(token).ConfigureAwait(false))
+		{
+		}
+
+		return reader.RecordsAffected;
+	}
+
+	public override async Task<object?> ExecuteScalarAsync(CancellationToken token)
+	{
+		await using var reader = await ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SingleRow, token);
+		if (await reader.ReadAsync(token))
+			return reader.GetValue(0);
+		return null;
 	}
 
 	protected override void Dispose(bool disposing)

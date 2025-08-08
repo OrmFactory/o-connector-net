@@ -98,4 +98,21 @@ public class Request
 	{
 		buffer.Write(bytes, 0, bytes.Length);
 	}
+
+	public void WriteDecimal(decimal value)
+	{
+		int[] bits = decimal.GetBits(value);
+		foreach (int part in bits)
+			WriteInt32(part);
+	}
+
+	public void WriteBoolean(bool value)
+	{
+		WriteByte((byte)(value ? 1 : 0));
+	}
+
+	public void WriteDateTime(DateTime value)
+	{
+		WriteInt64(value.Ticks);
+	}
 }
