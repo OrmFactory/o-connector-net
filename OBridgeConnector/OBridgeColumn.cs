@@ -25,7 +25,7 @@ public class OBridgeColumn : DbColumn
 		ColumnName = await reader.ReadString(token);
 		DataTypeName = await reader.ReadString(token);
 		if (hasAllowDbNull) AllowDBNull = await reader.ReadByte(token) != 0;
-		if (hasColumnSize) ColumnSize = await reader.ReadByte(token);
+		if (hasColumnSize) ColumnSize = await reader.Read7BitEncodedInt(token);
 		if (hasNumericPrecision) NumericPrecision = await reader.ReadByte(token);
 		if (hasNumericScale)
 		{

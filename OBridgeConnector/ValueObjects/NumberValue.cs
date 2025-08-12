@@ -20,6 +20,7 @@ public class NumberValue : ValueObject
 	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
 	{
 		byte meta = await reader.ReadByte(token);
+		base100Digits.Clear();
 
 		// Format A: (meta & 0x80) != 0
 		if ((meta & 0x80) != 0)
