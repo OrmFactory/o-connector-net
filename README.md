@@ -1,6 +1,6 @@
 # O-Connector
 
-**O-Connector** is a lightweight ADO.NET-compatible client library for connecting to databases through the high-performance binary protocol of [O-Bridge](https://github.com/OrmFactory/o-bridge).
+**O-Connector** is a lightweight ADO.NET-compatible client library for connecting to Oracle database through the high-performance binary protocol of [O-Bridge](https://github.com/OrmFactory/o-bridge).
 
 It is designed specifically for use with **[OrmFactory](https://ormfactory.com)** - a modern developer tool for schema-first modeling and ORM code generation.
 O-Connector enables OrmFactory to connect to Oracle in a fast and resource-efficient way, without relying on heavyweight native drivers.
@@ -10,12 +10,14 @@ O-Connector enables OrmFactory to connect to Oracle in a fast and resource-effic
 - Binary protocol optimized for latency and memory usage
 - Async-first API for efficient I/O
 - Full support for Oracle-specific types (e.g., `INTERVAL`, `NUMBER`, `DATE`)
+- Optional Zstd compression
+- SSL options (none, required and strict modes)
 
 ## When to use
 
 Use O-Connector if you:
 
-- Need fast, low-allocation access to Oracle or similar databases
+- Need fast, low-allocation access to Oracle
 - Want to avoid installing native drivers (like Oracle Instant Client)
 - Are working in sandboxed, cross-platform, or containerized environments
 - Are using [O-Bridge](https://github.com/OrmFactory/o-bridge) as a backend protocol layer
