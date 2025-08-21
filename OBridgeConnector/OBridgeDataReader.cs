@@ -186,52 +186,60 @@ public class OBridgeDataReader : DbDataReader
 
 	private byte[] nullMask = [];
 
+	private BatchReader? batchReader;
+
 	public override async Task<bool> ReadAsync(CancellationToken token)
 	{
-		byte code = await reader.ReadByte(token);
+		if (batchReader?.HasBytes == true)
+		{
+			ReadFromBatchReader();
+			hasRows = true;
+			return true;
+		}
+
+		byte code = await reader.ReadByte(token).ConfigureAwait(false);
 		if (code == (byte)ResponseTypeEnum.RowData)
 		{
-			reader.EnableDataCollection = EnableRowDataCollection;
-			reader.ClearCollectionBuffer();
-
-			int nullableColumnsCount = columns.Count(c => c.IsNullable);
-			int nullMaskBytes = (nullableColumnsCount + 7) / 8;
-			nullMask = await reader.ReadBytes(nullMaskBytes, token);
-			for (int i = 0; i < columns.Count; i++)
-			{
-				if (!IsDBNull(i)) await columns[i].ValueObject.ReadFromStream(reader, token);
-			}
-
-			if (reader.EnableDataCollection)
-			{
-				reader.EnableDataCollection = false;
-			}
-
+			var batchBytesCount = await reader.ReadInt32(token).ConfigureAwait(false);
+			var bytes = await reader.ReadBytes(batchBytesCount, token);
+			batchReader = new BatchReader(bytes);
+			ReadFromBatchReader();
 			hasRows = true;
 			return true;
 		}
 
 		if (code == (byte)ResponseTypeEnum.EndOfRowStream)
 		{
-			recordsAffected = await reader.Read7BitEncodedInt(token);
-			await ReadOutputParameters(token);
+			recordsAffected = await reader.Read7BitEncodedInt(token).ConfigureAwait(false);
+			await ReadOutputParameters(token).ConfigureAwait(false);
 			return false;
 		}
 
 		if (code == (byte)ResponseTypeEnum.Error)
 		{
-			await ReadError(reader, token);
+			await ReadError(reader, token).ConfigureAwait(false);
 			return false;
 		}
 		throw new Exception($"Unexpected response code: {code}");
 	}
 
+	private void ReadFromBatchReader()
+	{
+		int nullableColumnsCount = columns.Count(c => c.IsNullable);
+		int nullMaskBytes = (nullableColumnsCount + 7) / 8;
+		nullMask = batchReader.ReadBytes(nullMaskBytes);
+		for (int i = 0; i < columns.Count; i++)
+		{
+			if (!IsDBNull(i)) columns[i].ValueObject.ReadFromBatch(batchReader);
+		}
+	}
+
 	private async Task ReadOutputParameters(CancellationToken token)
 	{
-		var paramsCount = await reader.Read7BitEncodedInt(token);
+		var paramsCount = await reader.Read7BitEncodedInt(token).ConfigureAwait(false);
 		for (int i = 0; i < paramsCount; i++)
 		{
-			var p = await OBridgeParameter.FromReader(reader, token);
+			var p = await OBridgeParameter.FromReader(reader, token).ConfigureAwait(false);
 			if (command.Parameters.Contains(p.ParameterName))
 			{
 				var existingParam = command.Parameters[p.ParameterName];

@@ -4,17 +4,17 @@ using System.Text;
 
 namespace OBridgeConnector;
 
-public ref struct SpanReader
+public class BatchReader
 {
-	private ReadOnlySpan<byte> buffer;
+	private byte[] buffer;
 	private int offset = 0;
 
 	private int currentByte = 0;
 	private int bitPosition = 0;
 
-	public SpanReader(ReadOnlySpan<byte> span)
+	public BatchReader(byte[] bytes)
 	{
-		this.buffer = span;
+		this.buffer = bytes;
 	}
 
 	public bool ReadBit()
@@ -69,7 +69,7 @@ public ref struct SpanReader
 	public float ReadFloat()
 	{
 		bitPosition = 0;
-		var result = BinaryPrimitives.ReadSingleLittleEndian(buffer.Slice(offset, 4));
+		var result = BinaryPrimitives.ReadSingleLittleEndian(buffer.AsSpan(offset, 4));
 		offset += 4;
 		return result;
 	}
@@ -77,7 +77,7 @@ public ref struct SpanReader
 	public double ReadDouble()
 	{
 		bitPosition = 0;
-		var result = BinaryPrimitives.ReadDoubleLittleEndian(buffer.Slice(offset, 8));
+		var result = BinaryPrimitives.ReadDoubleLittleEndian(buffer.AsSpan(offset, 8));
 		offset += 8;
 		return result;
 	}
@@ -111,7 +111,7 @@ public ref struct SpanReader
 		int length = Read7BitEncodedInt();
 		if (length == 0) return string.Empty;
 
-		var result = Encoding.UTF8.GetString(buffer.Slice(offset, length));
+		var result = Encoding.UTF8.GetString(buffer.AsSpan(offset, length));
 		offset += length;
 		return result;
 	}
@@ -119,7 +119,7 @@ public ref struct SpanReader
 	public ReadOnlySpan<byte> ReadBytesAsSpan(int count)
 	{
 		bitPosition = 0;
-		var result = buffer.Slice(offset, count);
+		var result = buffer.AsSpan(offset, count);
 		offset += count;
 		return result;
 	}
@@ -130,4 +130,5 @@ public ref struct SpanReader
 	}
 
 	public int Offset => offset;
+	public bool HasBytes => Offset < buffer.Length;
 }

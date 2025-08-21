@@ -55,11 +55,11 @@ public class OBridgeRowDataReader
 		int nullableColumnsCount = columns.Count(c => c.IsNullable);
 		int nullMaskBytes = (nullableColumnsCount + 7) / 8;
 
-		var spanReader = new SpanReader(rowData.AsSpan());
+		var spanReader = new BatchReader(rowData);
 		nullMask = spanReader.ReadBytes(nullMaskBytes);
 		for (int i = 0; i < columns.Count; i++)
 		{
-			if (!IsDBNull(i)) columns[i].ValueObject.ReadFromSpan(ref spanReader);
+			if (!IsDBNull(i)) columns[i].ValueObject.ReadFromBatch(spanReader);
 		}
 	}
 }

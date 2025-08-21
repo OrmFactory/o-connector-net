@@ -6,12 +6,7 @@ public class FloatValue : ValueObject
 {
 	private float value;
 
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		value = await reader.ReadFloat(token);
-	}
-
-	public override void ReadFromSpan(ref SpanReader reader)
+	public override void ReadFromBatch(BatchReader reader)
 	{
 		value = reader.ReadFloat();
 	}

@@ -31,43 +31,7 @@ public class DateTimeValue : ValueObject
 		this.timeZone = timeZone;
 	}
 
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		hour = 0;
-		minute = 0;
-		second = 0;
-		nanosecond = 0;
-		timeZoneOffsetMinutes = 0;
-
-		var bits = new AsyncBitReader(reader);
-		isDateOnly = await bits.ReadBit(token);
-		hasFraction = await bits.ReadBit(token);
-		hasTimezone = await bits.ReadBit(token);
-
-		year = await bits.ReadSignedBits(15, token);
-		month = await bits.ReadBits(4, token);
-		day = await bits.ReadBits(5, token);
-
-		if (isDateOnly) return;
-
-		hour = await bits.ReadBits(5, token);
-		minute = await bits.ReadBits(6, token);
-		second = await bits.ReadBits(6, token);
-		
-		if (hasFraction && precision > 0)
-		{
-			int bitLength = FractionBitLengths[precision];
-			int scaled = await bits.ReadBits(bitLength, token);
-			nanosecond = scaled * PowersOf10[9 - precision];
-		}
-
-		if (hasTimezone)
-		{
-			timeZoneOffsetMinutes = await bits.ReadSignedBits(11, token);
-		}
-	}
-
-	public override void ReadFromSpan(ref SpanReader reader)
+	public override void ReadFromBatch(BatchReader reader)
 	{
 		hour = 0;
 		minute = 0;

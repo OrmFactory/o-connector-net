@@ -6,12 +6,7 @@ public class DoubleValue : ValueObject
 {
 	private double value;
 
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		value = await reader.ReadDouble(token);
-	}
-
-	public override void ReadFromSpan(ref SpanReader reader)
+	public override void ReadFromBatch(BatchReader reader)
 	{
 		value = reader.ReadDouble();
 	}

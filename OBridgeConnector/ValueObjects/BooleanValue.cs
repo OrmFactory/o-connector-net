@@ -4,12 +4,7 @@ public class BooleanValue : ValueObject
 {
 	private bool value;
 
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		value = await reader.ReadByte(token) > 0;
-	}
-
-	public override void ReadFromSpan(ref SpanReader reader)
+	public override void ReadFromBatch(BatchReader reader)
 	{
 		value = reader.ReadByte() > 0;
 	}

@@ -4,8 +4,6 @@ namespace OBridgeConnector.ValueObjects;
 
 public abstract class ValueObject
 {
-	public abstract Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token);
-
 	public virtual bool GetBoolean() => throw new InvalidCastException();
 	public virtual byte GetByte() => throw new InvalidCastException();
 	public virtual char GetChar() => throw new InvalidCastException();
@@ -28,5 +26,5 @@ public abstract class ValueObject
 	public abstract string GetString();
 	public abstract object GetValue();
 	public abstract Type GetDefaultType();
-	public abstract void ReadFromSpan(ref SpanReader reader);
+	public abstract void ReadFromBatch(BatchReader reader);
 }

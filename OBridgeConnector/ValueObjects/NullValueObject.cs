@@ -9,12 +9,7 @@ public class NullValueObject : ValueObject
 
 	}
 
-	public override Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		return Task.CompletedTask;
-	}
-
-	public override void ReadFromSpan(ref SpanReader reader)
+	public override void ReadFromBatch(BatchReader reader)
 	{
 		return;
 	}

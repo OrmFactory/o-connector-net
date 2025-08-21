@@ -17,9 +17,9 @@ public class NumberValue : ValueObject
 		this.scale = scale;
 	}
 
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
+	public override void ReadFromBatch(BatchReader reader)
 	{
-		byte meta = await reader.ReadByte(token);
+		byte meta = reader.ReadByte();
 		base100Digits.Clear();
 
 		// Format A: (meta & 0x80) != 0
@@ -37,39 +37,6 @@ public class NumberValue : ValueObject
 		if (scaleRaw == 63)
 		{
 			// fallback scale
-			valueScale = await reader.ReadByte(token) - 130;
-		}
-		else
-		{
-			valueScale = scaleRaw - 32;
-		}
-
-		// Read base100 digits until MSB is set
-		while (true)
-		{
-			var b = await reader.ReadByte(token);
-			base100Digits.Add((byte)(b & 0x7F));
-			if ((b & 0x80) != 0) break;
-		}
-	}
-
-	public override void ReadFromSpan(ref SpanReader reader)
-	{
-		byte meta = reader.ReadByte();
-
-		if ((meta & 0x80) != 0)
-		{
-			isFormatA = true;
-			formatAValue = (byte)(meta & 0x7F);
-			return;
-		}
-
-		isFormatA = false;
-		isNegative = (meta & 0x40) != 0;
-		int scaleRaw = meta & 0x3F;
-
-		if (scaleRaw == 63)
-		{
 			valueScale = reader.ReadByte() - 130;
 		}
 		else
@@ -77,6 +44,7 @@ public class NumberValue : ValueObject
 			valueScale = scaleRaw - 32;
 		}
 
+		// Read base100 digits until MSB is set
 		while (true)
 		{
 			var b = reader.ReadByte();

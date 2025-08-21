@@ -4,12 +4,7 @@ public class StringValue : ValueObject
 {
 	private string value = "";
 
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		value = await reader.ReadString(token);
-	}
-
-	public override void ReadFromSpan(ref SpanReader reader)
+	public override void ReadFromBatch(BatchReader reader)
 	{
 		value = reader.ReadString();
 	}

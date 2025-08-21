@@ -21,7 +21,7 @@ public class AsyncBitReader
 	{
 		if (bitPosition == 8)
 		{
-			currentByte = await reader.ReadByte(cancellationToken);
+			currentByte = await reader.ReadByte(cancellationToken).ConfigureAwait(false);
 			bitPosition = 0;
 		}
 
@@ -38,7 +38,7 @@ public class AsyncBitReader
 		{
 			if (bitPosition == 8)
 			{
-				currentByte = await reader.ReadByte(cancellationToken);
+				currentByte = await reader.ReadByte(cancellationToken).ConfigureAwait(false);
 				bitPosition = 0;
 			}
 
@@ -61,8 +61,8 @@ public class AsyncBitReader
 
 	public async ValueTask<int> ReadSignedBits(int bitCount, CancellationToken cancellationToken)
 	{
-		var isNegative = await ReadBit(cancellationToken);
-		int abs = await ReadBits(bitCount - 1, cancellationToken);
+		var isNegative = await ReadBit(cancellationToken).ConfigureAwait(false);
+		int abs = await ReadBits(bitCount - 1, cancellationToken).ConfigureAwait(false);
 
 		return isNegative ? -abs : abs;
 	}

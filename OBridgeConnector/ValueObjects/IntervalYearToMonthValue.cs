@@ -6,23 +6,7 @@ public class IntervalYearToMonthValue : ValueObject
 {
 	private OBridgeIntervalYM interval = new();
 
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		interval = new();
-		var meta = await reader.ReadByte(token);
-		var hasYears = (meta & 0x01) != 0;
-		var hasMonths = (meta & 0x02) != 0;
-		var isNegative = (meta & 0x80) != 0;
-		if (hasYears) interval.Years = await reader.Read7BitEncodedInt(token);
-		if (hasMonths) interval.Months = await reader.Read7BitEncodedInt(token);
-		if (isNegative)
-		{
-			interval.Years = -interval.Years;
-			interval.Months = -interval.Months;
-		}
-	}
-
-	public override void ReadFromSpan(ref SpanReader reader)
+	public override void ReadFromBatch(BatchReader reader)
 	{
 		interval = new();
 		var meta = reader.ReadByte();

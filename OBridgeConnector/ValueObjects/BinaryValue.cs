@@ -6,11 +6,11 @@ public class BinaryValue : ValueObject
 
 	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
 	{
-		var byteCount = await reader.Read7BitEncodedInt(token);
-		value = await reader.ReadBytes(byteCount, token);
+		var byteCount = await reader.Read7BitEncodedInt(token).ConfigureAwait(false);
+		value = await reader.ReadBytes(byteCount, token).ConfigureAwait(false);
 	}
 
-	public override void ReadFromSpan(ref SpanReader reader)
+	public override void ReadFromBatch(BatchReader reader)
 	{
 		var byteCount = reader.Read7BitEncodedInt();
 		value = reader.ReadBytes(byteCount).ToArray();
