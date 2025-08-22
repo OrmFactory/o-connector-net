@@ -229,7 +229,8 @@ public class OBridgeConnection : DbConnection
 		{
 			await CreateTransport(builder, token);
 			var connectionRequest = GetConnectionRequest(builder);
-			await connectionRequest.SendAsync(Stream, token);
+			connectionRequest.Append(request);
+			request = connectionRequest;
 			SetState(ConnectionState.Connecting);
 		}
 

@@ -115,4 +115,9 @@ public class Request
 	{
 		WriteInt64(value.Ticks);
 	}
+
+	public void Append(Request request)
+	{
+		buffer.Write(request.buffer.GetBuffer());
+	}
 }

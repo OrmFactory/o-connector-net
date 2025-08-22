@@ -4,12 +4,6 @@ public class BinaryValue : ValueObject
 {
 	private byte[] value = [];
 
-	public override async Task ReadFromStream(AsyncBinaryReader reader, CancellationToken token)
-	{
-		var byteCount = await reader.Read7BitEncodedInt(token).ConfigureAwait(false);
-		value = await reader.ReadBytes(byteCount, token).ConfigureAwait(false);
-	}
-
 	public override void ReadFromBatch(BatchReader reader)
 	{
 		var byteCount = reader.Read7BitEncodedInt();
