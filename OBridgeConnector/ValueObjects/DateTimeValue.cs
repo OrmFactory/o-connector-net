@@ -43,8 +43,17 @@ public class DateTimeValue : ValueObject
 		isDateOnly = reader.ReadBit();
 		hasFraction = reader.ReadBit();
 		hasTimezone = reader.ReadBit();
+		var fullYearFormat = reader.ReadBit();
 
-		year = reader.ReadSignedBits(15);
+		if (fullYearFormat)
+		{
+			year = reader.ReadSignedBits(15);
+		}
+		else
+		{
+			year = 1900 + reader.ReadBits(8);
+		}
+		
 		month = reader.ReadBits(4);
 		day = reader.ReadBits(5);
 
