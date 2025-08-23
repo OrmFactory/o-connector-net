@@ -124,6 +124,11 @@ public class BatchReader
 		return result;
 	}
 
+	public void ResetBitPosition()
+	{
+		bitPosition = 0;
+	}
+
 	public byte[] ReadBytes(int count)
 	{
 		return ReadBytesAsSpan(count).ToArray();

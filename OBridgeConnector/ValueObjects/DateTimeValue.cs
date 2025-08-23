@@ -39,6 +39,7 @@ public class DateTimeValue : ValueObject
 		nanosecond = 0;
 		timeZoneOffsetMinutes = 0;
 
+		reader.ResetBitPosition();
 		isDateOnly = reader.ReadBit();
 		hasFraction = reader.ReadBit();
 		hasTimezone = reader.ReadBit();
