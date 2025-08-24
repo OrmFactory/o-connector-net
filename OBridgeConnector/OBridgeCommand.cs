@@ -22,8 +22,7 @@ public class OBridgeCommand : DbCommand
 
 	public async Task CancelAsync(CancellationToken token)
 	{
-		var request = new Request(CommandEnum.CancelFetch);
-		await request.SendAsync(connection.Stream, token);
+		await connection.SendCancelCommandAsync(token);
 	}
 
 	public override int ExecuteNonQuery()

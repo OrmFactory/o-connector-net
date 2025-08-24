@@ -17,13 +17,8 @@ public class OBridgeConnection : DbConnection
 	public override string Database { get; } = "";
 	public override string DataSource { get; } = "";
 	public override string ServerVersion { get; } = "";
-	public Stream? Stream => sslStream ?? stream;
 
-	private TcpClient client = new();
-	private Stream? stream;
-	private SslStream? sslStream;
-	private DecompressionStream? decompressionStream;
-	private AsyncBinaryReader? reader;
+	private OBridgeSession? session;
 
 	public OBridgeConnection() {}
 
@@ -54,37 +49,24 @@ public class OBridgeConnection : DbConnection
 
 	public override void Close()
 	{
-		CloseAsync().GetAwaiter().GetResult();
-	}
-
-	public override void Open()
-	{
-		OpenAsync(CancellationToken.None).GetAwaiter().GetResult();
+		if (state == ConnectionState.Closed) return;
+		if (session != null)
+		{
+			ConnectionPool.Return(session);
+			session = null;
+		}
+		SetState(ConnectionState.Closed);
 	}
 
 	public override async Task CloseAsync()
 	{
 		if (state == ConnectionState.Closed) return;
-		state = ConnectionState.Closed;
-
-		try
+		if (session != null)
 		{
-			if (decompressionStream != null)
-				await decompressionStream.DisposeAsync();
+			ConnectionPool.Return(session);
+			session = null;
 		}
-		catch { }
-
-		try
-		{
-			if (stream != null) await stream.DisposeAsync();
-		} 
-		catch { }
-
-		reader = null;
-		client.Dispose();
-		stream = null;
-		sslStream = null;
-		decompressionStream = null;
+		SetState(ConnectionState.Closed);
 	}
 
 	protected override void Dispose(bool disposing)
@@ -97,7 +79,17 @@ public class OBridgeConnection : DbConnection
 
 	public override async ValueTask DisposeAsync()
 	{
-		await CloseAsync();
+		if (session != null)
+		{
+			await session.DisposeAsync();
+			session = null;
+			SetState(ConnectionState.Closed);
+		}
+	}
+
+	public override void Open()
+	{
+		OpenAsync(CancellationToken.None).GetAwaiter().GetResult();
 	}
 
 	public override async Task OpenAsync(CancellationToken token)
@@ -107,11 +99,8 @@ public class OBridgeConnection : DbConnection
 		try
 		{
 			state = ConnectionState.Connecting;
-			var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
-			await CreateTransport(builder, token);
-			var request = GetConnectionRequest(builder);
-			await request.SendAsync(Stream, token);
-			await ReadConnectionResponse(token);
+			session = await ConnectionPool.CreateSession(ConnectionString);
+			await session.OpenConnectionAsync(token);
 			SetState(ConnectionState.Open);
 		}
 		catch (Exception)
@@ -126,125 +115,22 @@ public class OBridgeConnection : DbConnection
 		return new OBridgeCommand(this);
 	}
 
-	private async Task CreateTransport(OBridgeConnectionStringBuilder builder, CancellationToken token)
-	{
-		var host = builder.BridgeHost ?? throw new ArgumentException("BridgeHost is required");
-		var sslMode = builder.SslMode ?? SslMode.Require;
-
-		var port = sslMode == SslMode.None ? 0x0f0f : 0x0fac;
-		port = builder.BridgePort ?? port;
-		
-		await client.ConnectAsync(host, port, token);
-		
-		stream = client.GetStream();
-
-		if (sslMode == SslMode.None)
-		{
-			reader = new AsyncBinaryReader(stream);
-			return;
-		}
-
-		sslStream = new SslStream(stream, leaveInnerStreamOpen: false,
-			userCertificateValidationCallback: (sender, cert, chain, errors) =>
-			{
-				if (sslMode == SslMode.Strict)
-				{
-					return errors == SslPolicyErrors.None;
-				}
-				return true;
-			});
-
-		await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
-		{
-			TargetHost = host,
-			EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13,
-			RemoteCertificateValidationCallback = null
-		}, token);
-
-		reader = new AsyncBinaryReader(sslStream);
-	}
-
-	private async Task ReadConnectionResponse(CancellationToken token)
-	{
-		var code = await reader.ReadByte(token);
-		if (code == (byte)ResponseTypeEnum.Error) await ReadError(token);
-		if (code == (byte)ResponseTypeEnum.ConnectionSuccess)
-		{
-			var compressionFlag = await reader.ReadByte(token);
-			var protocolVersion = await reader.ReadByte(token);
-
-			if (compressionFlag == 1)
-			{
-				decompressionStream = new DecompressionStream(Stream);
-				reader = new AsyncBinaryReader(decompressionStream);
-			}
-			return;
-		}
-
-		throw new Exception("Unknown response code " + code);
-	}
-
-	private async Task ReadError(CancellationToken token)
-	{
-		var errorCode = await reader.ReadByte(token);
-		var errorMessage = await reader.ReadString(token);
-		throw new Exception(errorMessage);
-	}
-
-	private Request GetConnectionRequest(OBridgeConnectionStringBuilder builder)
-	{
-		var request = new Request();
-		request.WriteBytes("OCON"u8.ToArray());
-
-		//protocol version
-		request.WriteByte(1);
-
-		byte useCompressionByte = 0;
-		if (builder.Compression != false) useCompressionByte = 1;
-		request.WriteByte(useCompressionByte);
-
-		request.WriteByte(0);
-		request.WriteByte(0);
-
-		if (builder is { ServerName: not null, Username: not null, Password: not null })
-		{
-			request.WriteByte((byte)CommandEnum.ConnectNamed);
-			request.WriteString(builder.ServerName);
-			request.WriteString(builder.Username);
-			request.WriteString(builder.Password);
-			return request;
-		}
-
-		var conString = builder.ToOracleConnectionString();
-		request.WriteByte((byte)CommandEnum.ConnectProxy);
-		request.WriteString(conString);
-		return request;
-	}
-
 	public async Task<OBridgeDataReader> RequestReader(Request request, OBridgeCommand command, CancellationToken token)
 	{
-		var builder = new OBridgeConnectionStringBuilder { ConnectionString = ConnectionString };
+		if (session == null) session = await ConnectionPool.CreateSession(ConnectionString);
 
-		if (State == ConnectionState.Closed)
-		{
-			await CreateTransport(builder, token);
-			var connectionRequest = GetConnectionRequest(builder);
-			connectionRequest.Append(request);
-			request = connectionRequest;
-			SetState(ConnectionState.Connecting);
-		}
+		await session.SendRequest(request, token);
+		SetState(ConnectionState.Open);
 
-		await request.SendAsync(Stream, token);
-
-		if (State == ConnectionState.Connecting)
-		{
-			await ReadConnectionResponse(token);
-			SetState(ConnectionState.Open);
-		}
-
-		var dbReader = new OBridgeDataReader(reader, command);
+		var dbReader = new OBridgeDataReader(session.Reader, command);
 		await dbReader.ReadHeader(token);
 		return dbReader;
+	}
+
+	public async Task SendCancelCommandAsync(CancellationToken token)
+	{
+		var request = new Request(CommandEnum.CancelFetch);
+		await request.SendAsync(session.Stream, token);
 	}
 }
 
