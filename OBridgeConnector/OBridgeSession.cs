@@ -83,6 +83,7 @@ public class OBridgeSession : IAsyncDisposable, IDisposable
 		var request = GetConnectionRequest(builder);
 		await request.SendAsync(Stream, token);
 		await ReadConnectionResponse(token);
+		isConnected = true;
 	}
 
 	private Request GetConnectionRequest(OBridgeConnectionStringBuilder builder)
