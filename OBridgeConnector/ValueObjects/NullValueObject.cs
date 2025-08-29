@@ -21,7 +21,7 @@ public class NullValueObject : ValueObject
 
 	public override object GetValue()
 	{
-		return null;
+		return DBNull.Value;
 	}
 
 	public override Type GetDefaultType()
